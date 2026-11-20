@@ -1,0 +1,24 @@
+<%- include('partials/header') %>
+
+<div style="max-width: 550px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="border-top: 4px solid #6366f1; padding: 2.5rem 2rem;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
+    <h1 style="font-size: 2rem; font-weight: 800; color: #818cf8; margin-bottom: 0.5rem;">503 Busy</h1>
+    <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;">High Demand Lock Timeout</h3>
+    
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
+      <%= message || 'The seat reservation row-lock timed out after 2 seconds due to concurrent traffic on these seats.' %>
+    </p>
+
+    <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 2rem; font-size: 0.85rem; color: #c7d2fe; text-align: left;">
+      ⚡ <strong>Concurrency Control:</strong> To avoid hanging connections, <code>lock_timeout = '2s'</code> gracefully aborted the wait instead of freezing.
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 1rem;">
+      <button onclick="window.history.back()" class="btn btn-primary">Try Again</button>
+      <a href="/events" class="btn btn-secondary">Browse Other Events</a>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

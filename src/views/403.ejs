@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+
+<div style="max-width: 550px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="border-top: 4px solid var(--danger); padding: 2.5rem 2rem;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">⛔</div>
+    <h1 style="font-size: 2rem; font-weight: 800; color: #ef4444; margin-bottom: 0.5rem;">403 Forbidden</h1>
+    <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem;">Access Denied</h3>
+    
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
+      <%= message || 'You do not have permission to view or modify this resource.' %>
+    </p>
+
+    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 2rem; font-size: 0.85rem; color: #fca5a5; text-align: left;">
+      📋 <strong>Security Audit Note:</strong> An immutable <code>ACCESS_DENIED</code> record has been logged to the audit shards for this unauthorized attempt.
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 1rem;">
+      <a href="/events" class="btn btn-primary">Return to Events</a>
+      <% if (!currentUser) { %>
+        <a href="/login" class="btn btn-secondary">Sign In</a>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

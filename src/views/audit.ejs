@@ -1,0 +1,132 @@
+<%- include('partials/header') %>
+
+<div style="margin-bottom: 1.5rem;">
+  <h1 style="font-size: 1.75rem; font-weight: 700;">Audit Log Viewer</h1>
+  <p style="color: var(--text-muted); font-size: 0.95rem;">
+    Auditable activity trail recorded across 4 sharded tables (<code style="background: var(--surface); padding: 0.1rem 0.3rem; border-radius: 3px;">audit_logs_0..3</code>).
+  </p>
+</div>
+
+<!-- Shard Routing Architecture Banner -->
+<div style="margin-bottom: 1.5rem; border-radius: 8px; padding: 1rem 1.25rem; 
+  <%= isPruned ? 'background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success);' : 'background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary);' %>">
+  <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+    <span style="font-size: 1.1rem;"><%= isPruned ? '🎯' : '🌐' %></span>
+    <strong style="color: <%= isPruned ? '#34d399' : '#60a5fa' %>; font-size: 0.95rem;">
+      <%= isPruned ? `Shard Pruning Active (Queried 1 of 4 Shards: audit_logs_${queriedShards[0]})` : 'Scatter-Gather Active (Queried All 4 Shards in Parallel)' %>
+    </strong>
+  </div>
+  <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
+    <% if (isPruned) { %>
+      The event filter selected a specific event ID. The hash function <code style="color: #fff;">fnv1a(event_id) % 4</code> routed directly to <strong>audit_logs_<%= queriedShards[0] %></strong>, eliminating reads from the other 3 shards.
+    <% } else { %>
+      No single event filter was applied. The service executed 4 concurrent queries across <strong>audit_logs_0</strong>, <strong>audit_logs_1</strong>, <strong>audit_logs_2</strong>, and <strong>audit_logs_3</strong>, then merge-sorted results descending by <em>(created_at, id)</em>.
+    <% } %>
+  </p>
+</div>
+
+<!-- Filters Form -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem;">
+  <form action="/admin/audit" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+    <div style="flex: 1; min-width: 220px;">
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Filter by Event (Prunes to 1 Shard)</label>
+      <select name="eventId" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.9rem;">
+        <option value="">-- All Events (Scatter-Gather all 4 shards) --</option>
+        <% events.forEach(ev => { %>
+          <option value="<%= ev.id %>" <%= selectedEventId === ev.id ? 'selected' : '' %>>
+            <%= ev.title %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Start Date</label>
+      <input type="datetime-local" name="startDate" value="<%= startDate %>" style="padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.9rem;">
+    </div>
+
+    <div>
+      <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">End Date</label>
+      <input type="datetime-local" name="endDate" value="<%= endDate %>" style="padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.9rem;">
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1rem;">Apply Filter</button>
+      <% if (selectedEventId || startDate || endDate) { %>
+        <a href="/admin/audit" class="btn btn-secondary" style="padding: 0.55rem 0.85rem;">Reset</a>
+      <% } %>
+    </div>
+  </form>
+</div>
+
+<!-- Logs Table -->
+<div class="card" style="padding: 0; overflow-x: auto;">
+  <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+    <thead>
+      <tr style="border-bottom: 1px solid var(--border); background: rgba(15, 23, 42, 0.4); color: var(--text-muted);">
+        <th style="padding: 0.75rem 1rem;">Timestamp</th>
+        <th style="padding: 0.75rem 1rem;">Origin Shard</th>
+        <th style="padding: 0.75rem 1rem;">Action</th>
+        <th style="padding: 0.75rem 1rem;">Actor ID</th>
+        <th style="padding: 0.75rem 1rem;">Event ID</th>
+        <th style="padding: 0.75rem 1rem;">Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (logs.length === 0) { %>
+        <tr>
+          <td colspan="6" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+            No audit records found matching criteria.
+          </td>
+        </tr>
+      <% } %>
+
+      <% logs.forEach(log => { %>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 0.75rem 1rem; color: var(--text-muted); white-space: nowrap; font-family: monospace;">
+            <%= new Date(log.created_at).toLocaleString() %>
+          </td>
+          <td style="padding: 0.75rem 1rem; white-space: nowrap;">
+            <span style="background: var(--surface-hover); border: 1px solid var(--border); padding: 0.15rem 0.4rem; border-radius: 4px; font-family: monospace; font-size: 0.75rem; color: #94a3b8;">
+              audit_logs_<%= log.shard %>
+            </span>
+          </td>
+          <td style="padding: 0.75rem 1rem; white-space: nowrap;">
+            <% 
+              let badgeColor = 'background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);';
+              if (log.action === 'SEAT_HOLD') badgeColor = 'background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);';
+              if (log.action === 'SEAT_HOLD_REJECTED') badgeColor = 'background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);';
+              if (log.action === 'BOOKING_CONFIRMED') badgeColor = 'background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);';
+              if (log.action === 'BOOKING_CANCELLED') badgeColor = 'background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);';
+              if (log.action === 'ACCESS_DENIED') badgeColor = 'background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; font-weight: 700;';
+              if (log.action === 'HOLD_EXPIRED') badgeColor = 'background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #475569;';
+            %>
+            <span style="padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; <%= badgeColor %>">
+              <%= log.action %>
+            </span>
+          </td>
+          <td style="padding: 0.75rem 1rem; font-family: monospace; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">
+            <%= log.actor_id %>
+          </td>
+          <td style="padding: 0.75rem 1rem; font-family: monospace; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">
+            <%= log.event_id || '-' %>
+          </td>
+          <td style="padding: 0.75rem 1rem; font-family: monospace; font-size: 0.78rem; color: #cbd5e1; max-width: 400px; word-break: break-all;">
+            <%= JSON.stringify(log.details) %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Cursor Pagination -->
+<% if (nextCursor) { %>
+  <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+    <a href="/admin/audit?<%= selectedEventId ? `eventId=${selectedEventId}&` : '' %><%= startDate ? `startDate=${startDate}&` : '' %><%= endDate ? `endDate=${endDate}&` : '' %>cursor=<%= encodeURIComponent(nextCursor) %>" class="btn btn-secondary">
+      Next 50 Records &rarr;
+    </a>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

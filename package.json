@@ -1,0 +1,22 @@
+{
+  "name": "seatlock",
+  "version": "1.0.0",
+  "description": "Secure, server-rendered event seat-booking platform that prevents double bookings, enforces RBAC, and records sharded audit logs.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node tests/rbac.test.js && node tests/audit-routing.test.js",
+    "load-test": "node tests/load-test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "pg": "^8.13.1",
+    "pg-mem": "^3.0.14",
+    "uuid": "^11.0.3"
+  }
+}

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'SeatLock - Concurrency-Guaranteed Seat Booking' %></title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-hover: #334155;
+      --border: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background-color: var(--surface); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; }
+    .nav-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 1.25rem; font-weight: 700; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; }
+    .logo span.tag { background: #2563eb; color: #fff; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; text-transform: uppercase; }
+    nav { display: flex; align-items: center; gap: 1.25rem; }
+    nav a { color: var(--text-muted); text-decoration: none; font-size: 0.95rem; font-weight: 500; transition: color 0.2s; }
+    nav a:hover, nav a.active { color: #fff; }
+    .user-pill { display: flex; align-items: center; gap: 0.5rem; background: var(--surface-hover); padding: 0.35rem 0.75rem; border-radius: 9999px; font-size: 0.85rem; }
+    .role-badge { padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+    .role-admin { background: #7c3aed; color: #fff; }
+    .role-organizer { background: #0284c7; color: #fff; }
+    .role-student { background: #059669; color: #fff; }
+    .logout-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+    .logout-btn:hover { color: #fff; border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+    main { max-width: 1200px; width: 100%; margin: 2rem auto; padding: 0 1.5rem; flex: 1; }
+    .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.95rem; }
+    .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: #34d399; }
+    .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #f87171; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; text-decoration: none; transition: 0.2s; font-size: 0.9rem; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-secondary { background: var(--surface-hover); color: var(--text); }
+    .btn-secondary:hover { background: #475569; }
+    footer { border-top: 1px solid var(--border); padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav-container">
+      <a href="/events" class="logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        SeatLock
+        <span class="tag">ACID Sharded</span>
+      </a>
+
+      <nav>
+        <a href="/events">Events</a>
+        <% if (currentUser) { %>
+          <% if (currentUser.role === 'student' || currentUser.role === 'admin') { %>
+            <a href="/bookings">My Bookings</a>
+          <% } %>
+          <% if (currentUser.role === 'organizer' || currentUser.role === 'admin') { %>
+            <a href="/organizer/events/new">+ New Event</a>
+          <% } %>
+          <% if (currentUser.role === 'admin') { %>
+            <a href="/admin/users">Users</a>
+            <a href="/admin/audit">Audit Viewer</a>
+          <% } %>
+        <% } %>
+      </nav>
+
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <% if (currentUser) { %>
+          <div class="user-pill">
+            <span><%= currentUser.name.split(' ')[0] %></span>
+            <span class="role-badge role-<%= currentUser.role %>"><%= currentUser.role %></span>
+          </div>
+          <form action="/logout" method="POST" style="display: inline;">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="logout-btn">Log out</button>
+          </form>
+        <% } else { %>
+          <a href="/login" class="btn btn-primary" style="padding: 0.35rem 0.85rem; font-size: 0.85rem;">Log in</a>
+        <% } %>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <%- body %>
+  </main>
+
+  <footer>
+    <p>SeatLock &bull; Full-Stack Hackathon Platform &bull; Pessimistic Locking &bull; 4 Sharded Audit Tables</p>
+  </footer>
+</body>
+</html>

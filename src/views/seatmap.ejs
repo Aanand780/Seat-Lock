@@ -1,0 +1,290 @@
+<%- include('partials/header') %>
+
+<div style="margin-bottom: 1.5rem;">
+  <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Back to Events</a>
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 0.5rem;">
+    <div>
+      <h1 style="font-size: 1.75rem; font-weight: 700;"><%= event.title %></h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">📍 <%= event.venue %> &bull; 🕒 <%= new Date(event.start_time).toLocaleString() %></p>
+    </div>
+    <% if (currentUser && (currentUser.role === 'admin' || currentUser.id === event.organizer_id)) { %>
+      <div style="display: flex; gap: 0.5rem;">
+        <a href="/organizer/events/<%= event.id %>/attendees" class="btn btn-secondary">Attendees List</a>
+        <a href="/organizer/events/<%= event.id %>/edit" class="btn btn-secondary">Edit Event</a>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<% if (typeof successMsg !== 'undefined' && successMsg) { %>
+  <div class="alert alert-success"><%= successMsg %></div>
+<% } %>
+<% if (typeof errorMsg !== 'undefined' && errorMsg) { %>
+  <div class="alert alert-error"><%= errorMsg %></div>
+<% } %>
+
+<!-- Active Hold Banner with Dynamic Countdown -->
+<% if (userActiveHold) { %>
+  <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warning); border-radius: 10px; padding: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <span style="font-size: 1.2rem;">⏱️</span>
+        <strong style="color: #fbbf24; font-size: 1.05rem;">You have an active hold on seats: <%= userActiveHold.seats.join(', ') %></strong>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">
+        Confirm your reservation before expiry, or these seats will automatically become available to others.
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div style="text-align: right;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Time Remaining</div>
+        <div id="countdownTimer" style="font-size: 1.35rem; font-weight: 800; color: #fbbf24; font-family: monospace;">--:--</div>
+      </div>
+      <form action="/events/<%= event.id %>/confirm" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-success" style="padding: 0.65rem 1.25rem; font-size: 1rem; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);">
+          Confirm Booking
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      let secondsLeft = <%= userActiveHold.expiresInSeconds %>;
+      const display = document.getElementById('countdownTimer');
+      function updateTimer() {
+        if (secondsLeft <= 0) {
+          display.textContent = 'EXPIRED';
+          display.style.color = '#ef4444';
+          setTimeout(() => window.location.reload(), 1500);
+          return;
+        }
+        const mins = Math.floor(secondsLeft / 60);
+        const secs = secondsLeft % 60;
+        display.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        secondsLeft--;
+      }
+      updateTimer();
+      setInterval(updateTimer, 1000);
+    })();
+  </script>
+<% } %>
+
+<!-- Seat Legend -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.5rem;">
+  <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; align-items: center;">
+    <strong style="color: var(--text-muted);">Legend:</strong>
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <div style="width: 18px; height: 18px; border-radius: 4px; background: #059669; border: 1px solid #10b981;"></div>
+      <span>Available</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <div style="width: 18px; height: 18px; border-radius: 4px; background: #d97706; border: 1px solid #f59e0b;"></div>
+      <span>Held by You</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <div style="width: 18px; height: 18px; border-radius: 4px; background: #78350f; border: 1px solid #b45309; opacity: 0.7;"></div>
+      <span>Held by Others</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <div style="width: 18px; height: 18px; border-radius: 4px; background: #dc2626; border: 1px solid #ef4444;"></div>
+      <span>Booked</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.4rem;">
+      <div style="width: 18px; height: 18px; border-radius: 4px; background: #334155; border: 1px solid #475569;"></div>
+      <span>Blocked</span>
+    </div>
+  </div>
+</div>
+
+<!-- Seat Map Grid -->
+<div class="card" style="text-align: center; margin-bottom: 1.5rem;">
+  <div style="max-width: 600px; margin: 0 auto 2.5rem; background: #334155; padding: 0.5rem; border-radius: 4px; color: var(--text-muted); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;">
+    &mdash; STAGE &mdash;
+  </div>
+
+  <form id="holdForm" action="/events/<%= event.id %>/hold" method="POST">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div style="display: inline-block; overflow-x: auto; max-width: 100%; padding: 1rem;">
+      <% 
+        // Group seats by row
+        const rowsMap = {};
+        seats.forEach(s => {
+          if (!rowsMap[s.row]) rowsMap[s.row] = [];
+          rowsMap[s.row].push(s);
+        });
+      %>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <% Object.keys(rowsMap).sort().forEach(rowKey => { %>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div style="width: 25px; font-weight: 700; color: var(--text-muted); font-size: 0.9rem;"><%= rowKey %></div>
+            <div style="display: flex; gap: 0.5rem;">
+              <% rowsMap[rowKey].sort((a,b) => a.col - b.col).forEach(seat => { %>
+                <div style="position: relative;">
+                  <% if (seat.status === 'available') { %>
+                    <label style="cursor: pointer; display: block;">
+                      <input type="checkbox" name="seatIds" value="<%= seat.id %>" class="seat-checkbox" onchange="updateSelectedCount()" style="display: none;">
+                      <div class="seat-box available" id="box-<%= seat.id %>">
+                        <%= seat.seatNumber %>
+                      </div>
+                    </label>
+                  <% } else if (seat.isHeldByMe) { %>
+                    <div class="seat-box held-mine" title="Held by you (<%= seat.holdExpiresIn %>s remaining)">
+                      <%= seat.seatNumber %>
+                    </div>
+                  <% } else if (seat.status === 'held') { %>
+                    <div class="seat-box held-other" title="Held by another student">
+                      <%= seat.seatNumber %>
+                    </div>
+                  <% } else if (seat.status === 'booked') { %>
+                    <div class="seat-box booked" title="Confirmed Booking">
+                      <%= seat.seatNumber %>
+                    </div>
+                  <% } else if (seat.status === 'blocked') { %>
+                    <div class="seat-box blocked" title="Blocked by Organizer">
+                      <%= seat.seatNumber %>
+                    </div>
+                  <% } %>
+
+                  <!-- Organizer block/unblock quick action -->
+                  <% if (currentUser && (currentUser.role === 'admin' || currentUser.id === event.organizer_id) && seat.status !== 'booked') { %>
+                    <button type="button" onclick="toggleSeatBlock('<%= seat.id %>', <%= seat.status === 'blocked' ? 'false' : 'true' %>)" 
+                      title="<%= seat.status === 'blocked' ? 'Unblock seat' : 'Block seat' %>"
+                      style="position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: #fff; font-size: 10px; line-height: 14px; cursor: pointer;">
+                      <%= seat.status === 'blocked' ? '🔓' : '🔒' %>
+                    </button>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
+            <div style="width: 25px; font-weight: 700; color: var(--text-muted); font-size: 0.9rem;"><%= rowKey %></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Student Hold Submission Bar -->
+    <% if (currentUser && currentUser.role === 'student') { %>
+      <div style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; display: flex; justify-content: center; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+        <div style="font-size: 0.95rem;">
+          Selected: <strong id="selectedCount" style="color: var(--primary);">0</strong> / 4 seats
+        </div>
+        <button type="submit" id="holdSubmitBtn" class="btn btn-primary" disabled style="padding: 0.65rem 1.5rem; font-size: 0.95rem;">
+          Hold Selected Seats (5 min)
+        </button>
+      </div>
+    <% } else if (!currentUser) { %>
+      <div style="margin-top: 1.5rem; color: var(--text-muted); font-size: 0.9rem;">
+        <a href="/login" style="color: var(--primary); text-decoration: underline;">Log in as student</a> to hold seats.
+      </div>
+    <% } %>
+  </form>
+</div>
+
+<!-- Hidden form for Organizer to toggle seat block -->
+<form id="blockToggleForm" action="/organizer/events/<%= event.id %>/seats/block" method="POST" style="display: none;">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <input type="hidden" name="seatId" id="blockSeatId">
+  <input type="hidden" name="isBlocked" id="blockIsBlocked">
+</form>
+
+<style>
+  .seat-box {
+    width: 44px;
+    height: 40px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+  .seat-box.available {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1.5px solid #10b981;
+    color: #34d399;
+  }
+  .seat-box.available:hover {
+    background: #10b981;
+    color: #fff;
+    transform: translateY(-2px);
+  }
+  .seat-box.selected {
+    background: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #fff !important;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  }
+  .seat-box.held-mine {
+    background: #d97706;
+    border: 1.5px solid #f59e0b;
+    color: #fff;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    animation: pulse 2s infinite;
+  }
+  .seat-box.held-other {
+    background: rgba(120, 53, 15, 0.4);
+    border: 1px dashed #b45309;
+    color: #d97706;
+    cursor: not-allowed;
+  }
+  .seat-box.booked {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid #ef4444;
+    color: #f87171;
+    cursor: not-allowed;
+  }
+  .seat-box.blocked {
+    background: #334155;
+    border: 1px solid #475569;
+    color: #64748b;
+    cursor: not-allowed;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+</style>
+
+<script>
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll('.seat-checkbox:checked');
+    const count = checked.length;
+    document.getElementById('selectedCount').textContent = count;
+    
+    // Toggle selected class on boxes
+    document.querySelectorAll('.seat-checkbox').forEach(cb => {
+      const box = document.getElementById('box-' + cb.value);
+      if (box) {
+        if (cb.checked) {
+          box.classList.add('selected');
+        } else {
+          box.classList.remove('selected');
+        }
+      }
+    });
+
+    const btn = document.getElementById('holdSubmitBtn');
+    if (btn) {
+      btn.disabled = count === 0 || count > 4;
+      if (count > 4) {
+        alert('You may select a maximum of 4 seats at once.');
+      }
+    }
+  }
+
+  function toggleSeatBlock(seatId, isBlocked) {
+    if (!confirm(`Are you sure you want to ${isBlocked ? 'block' : 'unblock'} this seat?`)) return;
+    document.getElementById('blockSeatId').value = seatId;
+    document.getElementById('blockIsBlocked').value = isBlocked;
+    document.getElementById('blockToggleForm').submit();
+  }
+</script>
+
+<%- include('partials/footer') %>

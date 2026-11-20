@@ -1,0 +1,85 @@
+<%- include('partials/header') %>
+
+<div style="margin-bottom: 1.5rem;">
+  <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Back to Events</a>
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 0.5rem;">
+    <div>
+      <h1 style="font-size: 1.75rem; font-weight: 700;">Attendees: <%= event.title %></h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">📍 <%= event.venue %> &bull; Total Attendees: <%= attendees.length %></p>
+    </div>
+    <a href="/events/<%= event.id %>/seats" class="btn btn-secondary">Seat Map</a>
+  </div>
+</div>
+
+<% if (typeof successMsg !== 'undefined' && successMsg) { %>
+  <div class="alert alert-success"><%= successMsg %></div>
+<% } %>
+
+<div class="card" style="padding: 0; overflow-x: auto;">
+  <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+    <thead>
+      <tr style="border-bottom: 1px solid var(--border); background: rgba(15, 23, 42, 0.4); color: var(--text-muted);">
+        <th style="padding: 0.85rem 1.25rem;">Student Name</th>
+        <th style="padding: 0.85rem 1.25rem;">Email</th>
+        <th style="padding: 0.85rem 1.25rem;">Seats</th>
+        <th style="padding: 0.85rem 1.25rem;">Booked At</th>
+        <th style="padding: 0.85rem 1.25rem;">Check-in Status</th>
+        <th style="padding: 0.85rem 1.25rem; text-align: right;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (attendees.length === 0) { %>
+        <tr>
+          <td colspan="6" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+            No confirmed attendees yet.
+          </td>
+        </tr>
+      <% } %>
+
+      <% attendees.forEach(att => { %>
+        <tr style="border-bottom: 1px solid var(--border);">
+          <td style="padding: 0.85rem 1.25rem; font-weight: 600;"><%= att.attendee_name %></td>
+          <td style="padding: 0.85rem 1.25rem; color: var(--text-muted);"><%= att.attendee_email %></td>
+          <td style="padding: 0.85rem 1.25rem;">
+            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+              <% (att.seats || []).forEach(s => { %>
+                <span style="background: var(--surface-hover); padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem;">
+                  <%= s.seat_number %>
+                </span>
+              <% }) %>
+            </div>
+          </td>
+          <td style="padding: 0.85rem 1.25rem; color: var(--text-muted); font-size: 0.85rem;">
+            <%= new Date(att.created_at).toLocaleString() %>
+          </td>
+          <td style="padding: 0.85rem 1.25rem;">
+            <% if (att.is_checked_in) { %>
+              <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 9999px; font-weight: 600;">
+                ✓ Checked In (<%= new Date(att.checked_in_at).toLocaleTimeString() %>)
+              </span>
+            <% } else { %>
+              <span style="background: rgba(148, 163, 184, 0.2); color: #94a3b8; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 9999px; font-weight: 600;">
+                Not Checked In
+              </span>
+            <% } %>
+          </td>
+          <td style="padding: 0.85rem 1.25rem; text-align: right;">
+            <% if (!att.is_checked_in) { %>
+              <form action="/organizer/events/<%= event.id %>/checkin" method="POST" style="display: inline;">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="bookingId" value="<%= att.booking_id %>">
+                <button type="submit" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                  Check In
+                </button>
+              </form>
+            <% } else { %>
+              <span style="color: var(--text-muted); font-size: 0.85rem;">Completed</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('partials/footer') %>

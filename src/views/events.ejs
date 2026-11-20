@@ -1,0 +1,83 @@
+<%- include('partials/header') %>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.75rem; font-weight: 700;">College Fest Events</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">
+      <% if (currentUser && currentUser.role === 'student') { %>
+        Browse upcoming shows and book your reserved numbered seats
+      <% } else if (currentUser && currentUser.role === 'organizer') { %>
+        Manage your events, block seats, and check in attendees
+      <% } else if (currentUser && currentUser.role === 'admin') { %>
+        Manage fest events, access attendee lists, and view audit trail
+      <% } else { %>
+        Sign in to hold and book seats
+      <% } %>
+    </p>
+  </div>
+  <% if (currentUser && (currentUser.role === 'organizer' || currentUser.role === 'admin')) { %>
+    <a href="/organizer/events/new" class="btn btn-primary">+ Create New Event</a>
+  <% } %>
+</div>
+
+<% if (typeof successMsg !== 'undefined' && successMsg) { %>
+  <div class="alert alert-success"><%= successMsg %></div>
+<% } %>
+
+<div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));">
+  <% if (events.length === 0) { %>
+    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem;">
+      <p style="color: var(--text-muted); font-size: 1rem;">No events available at the moment.</p>
+    </div>
+  <% } %>
+
+  <% events.forEach(ev => { %>
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+          <h2 style="font-size: 1.25rem; font-weight: 600;"><%= ev.title %></h2>
+          <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 9999px; text-transform: uppercase; font-weight: 600;
+            <%= ev.status === 'published' ? 'background: rgba(16, 185, 129, 0.2); color: #34d399;' : (ev.status === 'draft' ? 'background: rgba(245, 158, 11, 0.2); color: #fbbf24;' : 'background: rgba(239, 68, 68, 0.2); color: #f87171;') %>">
+            <%= ev.status %>
+          </span>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.4;">
+          <%= ev.description || 'No description provided.' %>
+        </p>
+
+        <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.5rem;">
+          <div>📍 <strong>Venue:</strong> <%= ev.venue %></div>
+          <div>🕒 <strong>Time:</strong> <%= new Date(ev.start_time).toLocaleString() %></div>
+          <div>👤 <strong>Organizer:</strong> <%= ev.organizer_name %></div>
+          <% if (currentUser && (currentUser.role === 'admin' || currentUser.id === ev.organizer_id)) { %>
+            <div>🔢 <strong>Version (OCC):</strong> <%= ev.version %></div>
+          <% } %>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <a href="/events/<%= ev.id %>/seats" class="btn btn-primary" style="flex: 1;">
+          View Seat Map
+        </a>
+
+        <% if (currentUser && (currentUser.role === 'admin' || currentUser.id === ev.organizer_id)) { %>
+          <a href="/organizer/events/<%= ev.id %>/attendees" class="btn btn-secondary">
+            Attendees
+          </a>
+          <a href="/organizer/events/<%= ev.id %>/edit" class="btn btn-secondary">
+            Edit
+          </a>
+        <% } %>
+
+        <% if (currentUser && currentUser.role === 'admin') { %>
+          <a href="/admin/audit?eventId=<%= ev.id %>" class="btn btn-secondary" title="View event audit logs">
+            Audit
+          </a>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('partials/footer') %>

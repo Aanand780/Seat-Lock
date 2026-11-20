@@ -1,0 +1,71 @@
+<%- include('partials/header') %>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.75rem; font-weight: 700;">My Bookings</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">Manage your reserved show tickets and check-in status</p>
+  </div>
+  <a href="/events" class="btn btn-primary">Browse More Events</a>
+</div>
+
+<% if (typeof successMsg !== 'undefined' && successMsg) { %>
+  <div class="alert alert-success"><%= successMsg %></div>
+<% } %>
+<% if (typeof errorMsg !== 'undefined' && errorMsg) { %>
+  <div class="alert alert-error"><%= errorMsg %></div>
+<% } %>
+
+<% if (bookings.length === 0) { %>
+  <div class="card" style="text-align: center; padding: 3rem 1rem;">
+    <div style="font-size: 2.5rem; margin-bottom: 1rem;">🎟️</div>
+    <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;">No active bookings found</h3>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">You haven't reserved any seats yet.</p>
+    <a href="/events" class="btn btn-primary">Browse Fest Events</a>
+  </div>
+<% } else { %>
+  <div class="grid" style="grid-template-columns: 1fr;">
+    <% bookings.forEach(b => { %>
+      <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-left: 4px solid <%= b.status === 'CONFIRMED' ? 'var(--success)' : 'var(--danger)' %>;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <h3 style="font-size: 1.2rem; font-weight: 700;"><%= b.event_title %></h3>
+            <span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px; text-transform: uppercase; font-weight: 600;
+              <%= b.status === 'CONFIRMED' ? 'background: rgba(16, 185, 129, 0.2); color: #34d399;' : 'background: rgba(239, 68, 68, 0.2); color: #f87171;' %>">
+              <%= b.status %>
+            </span>
+            <% if (b.is_checked_in) { %>
+              <span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 9999px; font-weight: 600;">
+                ✓ Checked In
+              </span>
+            <% } %>
+          </div>
+
+          <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem;">
+            📍 <%= b.event_venue %> &bull; 🕒 <%= new Date(b.event_start_time).toLocaleString() %>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Reserved Seats:</span>
+            <% (b.seats || []).forEach(s => { %>
+              <span style="background: var(--surface-hover); border: 1px solid var(--border); padding: 0.2rem 0.55rem; border-radius: 6px; font-weight: 700; font-size: 0.85rem; color: #fff;">
+                <%= s.seat_number %>
+              </span>
+            <% }) %>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <a href="/events/<%= b.event_id %>/seats" class="btn btn-secondary">Seat Map</a>
+          <% if (b.status === 'CONFIRMED' && new Date(b.event_start_time) > new Date()) { %>
+            <form action="/bookings/<%= b.id %>/cancel" method="POST" onsubmit="return confirm('Are you sure you want to cancel this booking? This will free your seats.');">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-danger">Cancel Booking</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,14 @@
+<%- include('partials/header') %>
+
+<div style="max-width: 550px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="border-top: 4px solid var(--danger); padding: 2.5rem 2rem;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+    <h1 style="font-size: 2rem; font-weight: 800; color: #ef4444; margin-bottom: 0.5rem;">Server Error (<%= typeof statusCode !== 'undefined' ? statusCode : 500 %>)</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5;">
+      <%= typeof message !== 'undefined' ? message : 'An unexpected error occurred.' %>
+    </p>
+    <a href="/events" class="btn btn-primary">Return to Events</a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

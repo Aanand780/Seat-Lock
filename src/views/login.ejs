@@ -1,0 +1,71 @@
+<%- include('partials/header') %>
+
+<div style="max-width: 480px; margin: 2rem auto;">
+  <div class="card">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Sign In to SeatLock</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Select a seeded test persona or sign in below</p>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <!-- 1-Click Quick Login Buttons for Demo -->
+    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+      <p style="font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem;">
+        ⚡ Instant Quick Login (Seeded Personas)
+      </p>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="quickFill('student1@collegefest.org', 'student123')" style="justify-content: space-between; font-size: 0.85rem; padding: 0.45rem 0.75rem;">
+          <span>👤 <strong>Student 1</strong> (Alex Mercer)</span>
+          <span class="role-badge role-student">Student</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="quickFill('student2@collegefest.org', 'student123')" style="justify-content: space-between; font-size: 0.85rem; padding: 0.45rem 0.75rem;">
+          <span>👤 <strong>Student 2</strong> (Beatriz Silva)</span>
+          <span class="role-badge role-student">Student</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="quickFill('organizer@collegefest.org', 'organizer123')" style="justify-content: space-between; font-size: 0.85rem; padding: 0.45rem 0.75rem;">
+          <span>📋 <strong>Lead Organizer</strong> (Elena Vance)</span>
+          <span class="role-badge role-organizer">Organizer</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="quickFill('organizer2@collegefest.org', 'organizer123')" style="justify-content: space-between; font-size: 0.85rem; padding: 0.45rem 0.75rem;">
+          <span>📋 <strong>Organizer 2</strong> (Marcus Brody)</span>
+          <span class="role-badge role-organizer">Organizer</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="quickFill('admin@collegefest.org', 'admin123')" style="justify-content: space-between; font-size: 0.85rem; padding: 0.45rem 0.75rem;">
+          <span>🛡️ <strong>Fest Administrator</strong></span>
+          <span class="role-badge role-admin">Admin</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Standard Login Form -->
+    <form action="/login" method="POST" id="loginForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="returnUrl" value="<%= returnUrl %>">
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text-muted);">Email Address</label>
+        <input type="email" id="emailInput" name="email" required style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text-muted);">Password</label>
+        <input type="password" id="passwordInput" name="password" required style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  function quickFill(email, password) {
+    document.getElementById('emailInput').value = email;
+    document.getElementById('passwordInput').value = password;
+    document.getElementById('loginForm').submit();
+  }
+</script>
+
+<%- include('partials/footer') %>

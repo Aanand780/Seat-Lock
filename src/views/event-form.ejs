@@ -1,0 +1,77 @@
+<%- include('partials/header') %>
+
+<div style="max-width: 650px; margin: 1.5rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">&larr; Back to Events</a>
+    <h1 style="font-size: 1.75rem; font-weight: 700; margin-top: 0.5rem;"><%= isEdit ? 'Edit Event' : 'Create New Event' %></h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      <%= isEdit ? 'Update event details with optimistic concurrency protection (version increment).' : 'Publish a new show or draft rehearsal session with a 50-seat grid.' %>
+    </p>
+  </div>
+
+  <% if (typeof errorMsg !== 'undefined' && errorMsg) { %>
+    <div class="alert alert-error"><%= errorMsg %></div>
+  <% } %>
+
+  <div class="card">
+    <form action="<%= isEdit ? `/organizer/events/${event.id}/edit` : '/organizer/events' %>" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <!-- Hidden version field for optimistic locking -->
+      <% if (isEdit) { %>
+        <input type="hidden" name="version" value="<%= event.version %>">
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.8rem; margin-bottom: 1.25rem; color: #93c5fd;">
+          🔒 <strong>Optimistic Lock Version:</strong> <%= event.version %> (Form will reject concurrent collisions with HTTP 409)
+        </div>
+      <% } %>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Event Title *</label>
+        <input type="text" name="title" required value="<%= isEdit ? event.title : '' %>" style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Description</label>
+        <textarea name="description" rows="3" style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;"><%= isEdit ? event.description : '' %></textarea>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Venue / Location *</label>
+        <input type="text" name="venue" required value="<%= isEdit ? event.venue : '' %>" style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Start Time *</label>
+          <input type="datetime-local" name="start_time" required 
+            value="<%= isEdit ? new Date(new Date(event.start_time).getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 16) : '' %>" 
+            style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">End Time *</label>
+          <input type="datetime-local" name="end_time" required 
+            value="<%= isEdit ? new Date(new Date(event.end_time).getTime() - new Date().getTimezoneOffset()*60000).toISOString().slice(0, 16) : '' %>" 
+            style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Status</label>
+        <select name="status" style="width: 100%; padding: 0.65rem 0.85rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 0.95rem;">
+          <option value="published" <%= isEdit && event.status === 'published' ? 'selected' : '' %>>Published (Visible to students for booking)</option>
+          <option value="draft" <%= isEdit && event.status === 'draft' ? 'selected' : '' %>>Draft (Visible only to organizer & admins)</option>
+          <option value="cancelled" <%= isEdit && event.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <a href="/events" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <%= isEdit ? 'Save Changes' : 'Create & Generate Seats' %>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
