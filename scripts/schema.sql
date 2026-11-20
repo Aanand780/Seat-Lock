@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     hold_id INT REFERENCES holds(id) ON DELETE SET NULL,
     status VARCHAR(20) DEFAULT 'CONFIRMED' CHECK (status IN ('CONFIRMED', 'CANCELLED')),
+    idempotency_key VARCHAR(100) UNIQUE,
     checked_in BOOLEAN DEFAULT FALSE,
     checked_in_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -81,6 +82,18 @@ CREATE TABLE IF NOT EXISTS booking_seats (
 
 -- Partial Unique Index safety net: prevents any seat from having multiple active confirmed bookings
 CREATE UNIQUE INDEX IF NOT EXISTS uq_active_booking_seat ON booking_seats (seat_id) WHERE status = 'CONFIRMED';
+
+-- 7b. Waitlist Table
+CREATE TABLE IF NOT EXISTS waitlist (
+    id SERIAL PRIMARY KEY,
+    event_id INT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    requested_seats_count INT DEFAULT 1 CHECK (requested_seats_count BETWEEN 1 AND 4),
+    status VARCHAR(20) DEFAULT 'WAITING' CHECK (status IN ('WAITING', 'NOTIFIED', 'EXPIRED')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uq_event_student_waitlist UNIQUE (event_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS idx_waitlist_event_status ON waitlist (event_id, status, created_at ASC);
 
 -- 8. Sharded Audit Logs (audit_logs_0 through audit_logs_3)
 DO $$

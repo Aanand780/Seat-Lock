@@ -13,6 +13,7 @@ const eventRoutes = require('./routes/event.routes');
 const bookingRoutes = require('./routes/booking.routes');
 const organizerRoutes = require('./routes/organizer.routes');
 const auditRoutes = require('./routes/audit.routes');
+const waitlistRoutes = require('./routes/waitlist.routes');
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/', eventRoutes);
 app.use('/', bookingRoutes);
 app.use('/', organizerRoutes);
 app.use('/', auditRoutes);
+app.use('/', waitlistRoutes);
 
 // Catch 404
 app.use(notFoundHandler);

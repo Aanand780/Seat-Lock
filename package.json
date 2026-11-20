@@ -12,6 +12,7 @@
     "test:phase2": "node --test tests/phase2-concurrency.test.js",
     "test:phase3": "node --test tests/phase3-audit.test.js",
     "test:phase4": "node --test tests/phase4-checkin.test.js",
+    "test:bonus": "node --test tests/bonus.test.js",
     "load-test": "node scripts/load-test.js"
   },
   "dependencies": {

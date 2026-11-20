@@ -1,19 +1,27 @@
 const db = require('../config/db');
 const { writeAudit } = require('./audit.service');
+const { broadcastSeatUpdate } = require('../utils/seatEvents');
+const { processWaitlist } = require('./waitlist.service');
 
 /**
  * Lazy cleanup of expired holds on read.
  * Updates expired active holds to 'EXPIRED' and logs HOLD_EXPIRED audit records.
+ * Uses SKIP LOCKED so concurrent cleanup processes never block each other.
  *
  * @param {object} [client=null] - Optional pg client
  */
 async function cleanupExpiredHolds(client = null) {
   const executor = client || db;
 
+  // Use SKIP LOCKED for non-blocking concurrent hold sweeping
   const expiredRes = await executor.query(`
     UPDATE holds
     SET status = 'EXPIRED'
-    WHERE status = 'ACTIVE' AND expires_at <= NOW()
+    WHERE id IN (
+      SELECT id FROM holds
+      WHERE status = 'ACTIVE' AND expires_at <= NOW()
+      FOR UPDATE SKIP LOCKED
+    )
     RETURNING id, event_id, student_id;
   `);
 
@@ -28,6 +36,23 @@ async function cleanupExpiredHolds(client = null) {
           details: { holdId: row.id, reason: 'Hold duration exceeded 5 minutes' },
           client,
         });
+
+        // Broadcast released seats via SSE
+        const seatsRes = await executor.query(
+          `SELECT seat_id FROM hold_seats WHERE hold_id = $1`,
+          [row.id]
+        );
+        const freedSeatIds = seatsRes.rows.map(r => r.seat_id);
+        if (freedSeatIds.length > 0) {
+          broadcastSeatUpdate(row.event_id, {
+            type: 'SEAT_UPDATE',
+            seatIds: freedSeatIds,
+            state: 'AVAILABLE',
+          });
+        }
+
+        // Trigger waitlist notification for freed seats
+        await processWaitlist(row.event_id, client);
       } catch (err) {
         console.error('Error logging HOLD_EXPIRED audit:', err);
       }
@@ -116,21 +141,14 @@ async function getSeatMap(currentUser, eventId) {
 
 /**
  * Hold 1-4 seats atomically for 5 minutes.
- * - Single ACID transaction
- * - Row locks with SELECT ... FOR UPDATE in ORDER BY seat id to prevent deadlocks
- * - Lock timeout 2s
- * - Expiry checked inside transaction
- * - Multi-seat all-or-nothing: returns unavailable seat IDs on failure (409)
- * - Max 4 held, max 4 booked per student per event
- * - Replaces previous active hold for same event
- * - Closes after event start time
- * - Writes SEAT_HOLD or SEAT_HOLD_REJECTED in transaction
+ * Supports lockingMode: 'WAIT' (default), 'NOWAIT', 'SKIP LOCKED'
  *
  * @param {object} currentUser
  * @param {number} eventId
  * @param {Array<number>} seatIds
+ * @param {object} [options={}] - { lockingMode: 'WAIT'|'NOWAIT'|'SKIP LOCKED' }
  */
-async function holdSeats(currentUser, eventId, seatIds) {
+async function holdSeats(currentUser, eventId, seatIds, options = {}) {
   // Permission check
   if (!currentUser) {
     const error = new Error('Access denied: Authentication required');
@@ -154,6 +172,7 @@ async function holdSeats(currentUser, eventId, seatIds) {
   // Convert to numbers and sort ascending for deadlock prevention
   const sortedSeatIds = [...new Set(seatIds.map(id => parseInt(id, 10)))].sort((a, b) => a - b);
   const parsedEventId = parseInt(eventId, 10);
+  const lockingMode = options.lockingMode || 'WAIT'; // 'WAIT' | 'NOWAIT' | 'SKIP LOCKED'
 
   return await db.withTransaction(async (client) => {
     // 1. Check Event Start Time and Status
@@ -192,17 +211,30 @@ async function holdSeats(currentUser, eventId, seatIds) {
     // 3. In-transaction cleanup of any expired holds
     await cleanupExpiredHolds(client);
 
-    // 4. Pessimistic row-lock on requested seats in stable order (ORDER BY id ASC)
+    // 4. Construct locking SQL clause based on requested lockingMode
+    let lockClause = 'FOR UPDATE';
+    if (lockingMode === 'NOWAIT') {
+      lockClause = 'FOR UPDATE NOWAIT';
+    } else if (lockingMode === 'SKIP LOCKED') {
+      lockClause = 'FOR UPDATE SKIP LOCKED';
+    }
+
     const lockedSeatsRes = await client.query(
       `SELECT id, status, row_label, seat_number
        FROM seats
        WHERE id = ANY($1) AND event_id = $2
        ORDER BY id ASC
-       FOR UPDATE`,
+       ${lockClause}`,
       [sortedSeatIds, parsedEventId]
     );
 
+    // If SKIP LOCKED skipped seats, or invalid seat IDs requested
     if (lockedSeatsRes.rows.length !== sortedSeatIds.length) {
+      if (lockingMode === 'SKIP LOCKED') {
+        const conflictErr = new Error('One or more requested seats could not be locked immediately (SKIP LOCKED)');
+        conflictErr.statusCode = 409;
+        throw conflictErr;
+      }
       const err = new Error('One or more requested seat IDs do not exist for this event');
       err.statusCode = 400;
       throw err;
@@ -230,8 +262,6 @@ async function holdSeats(currentUser, eventId, seatIds) {
     existingBookings.rows.forEach(r => unavailableSeats.push(r.seat_id));
 
     // 5c. Check active unexpired holds by other users
-    // Note: If the CURRENT user has an existing active hold, that hold will be replaced below,
-    // so seats currently held by the current user for THIS event do not conflict with self.
     const existingHolds = await client.query(
       `SELECT hs.seat_id
        FROM hold_seats hs
@@ -257,6 +287,7 @@ async function holdSeats(currentUser, eventId, seatIds) {
         details: {
           requestedSeatIds: sortedSeatIds,
           unavailableSeatIds: uniqueUnavailable,
+          lockingMode,
           reason: 'One or more seats unavailable under all-or-nothing hold rule',
         },
         client,
@@ -269,7 +300,6 @@ async function holdSeats(currentUser, eventId, seatIds) {
     }
 
     // 6. Replace Student's Previous Active Hold for this Event
-    // Rule: Only one active hold per student per event; a new hold replaces the old one.
     const prevHoldRes = await client.query(
       `SELECT id FROM holds
        WHERE student_id = $1 AND event_id = $2 AND status = 'ACTIVE'
@@ -313,8 +343,17 @@ async function holdSeats(currentUser, eventId, seatIds) {
         seatIds: sortedSeatIds,
         expiresAt: hold.expires_at,
         seatCount: sortedSeatIds.length,
+        lockingMode,
       },
       client,
+    });
+
+    // 10. Broadcast real-time SSE seat update
+    broadcastSeatUpdate(parsedEventId, {
+      type: 'SEAT_UPDATE',
+      seatIds: sortedSeatIds,
+      state: 'HELD',
+      studentId: currentUser.id,
     });
 
     return {
@@ -328,11 +367,15 @@ async function holdSeats(currentUser, eventId, seatIds) {
 
 /**
  * Confirm an unexpired seat hold into a permanent booking.
+ * Fully Idempotent:
+ * 1. Honors explicit client idempotencyKey.
+ * 2. Safely re-returns confirmed booking if hold was already confirmed.
  *
  * @param {object} currentUser
  * @param {number} holdId
+ * @param {object} [options={}] - { idempotencyKey: string|null }
  */
-async function confirmHold(currentUser, holdId) {
+async function confirmHold(currentUser, holdId, options = {}) {
   if (!currentUser) {
     const error = new Error('Access denied: Authentication required');
     error.statusCode = 401;
@@ -340,9 +383,32 @@ async function confirmHold(currentUser, holdId) {
   }
 
   const parsedHoldId = parseInt(holdId, 10);
+  const idempotencyKey = options?.idempotencyKey || null;
 
   return await db.withTransaction(async (client) => {
-    // 1. Row-lock hold
+    // 1. Idempotency Check A: If idempotencyKey provided, check if booking exists
+    if (idempotencyKey) {
+      const existingKeyRes = await client.query(
+        `SELECT b.*,
+                COALESCE(json_agg(json_build_object('seat_id', bs.seat_id)) FILTER (WHERE bs.seat_id IS NOT NULL), '[]') as seats
+         FROM bookings b
+         LEFT JOIN booking_seats bs ON bs.booking_id = b.id
+         WHERE b.idempotency_key = $1
+         GROUP BY b.id`,
+        [idempotencyKey]
+      );
+
+      if (existingKeyRes.rows.length > 0) {
+        return {
+          success: true,
+          booking: existingKeyRes.rows[0],
+          seats: existingKeyRes.rows[0].seats,
+          idempotent: true,
+        };
+      }
+    }
+
+    // 2. Row-lock hold
     const holdRes = await client.query(
       `SELECT * FROM holds WHERE id = $1 FOR UPDATE`,
       [parsedHoldId]
@@ -360,6 +426,28 @@ async function confirmHold(currentUser, holdId) {
       const err = new Error('Access denied: You can only confirm your own seat holds');
       err.statusCode = 403;
       throw err;
+    }
+
+    // 3. Idempotency Check B: If hold is already CONFIRMED, return existing booking
+    if (hold.status === 'CONFIRMED') {
+      const existingHoldBooking = await client.query(
+        `SELECT b.*,
+                COALESCE(json_agg(json_build_object('seat_id', bs.seat_id)) FILTER (WHERE bs.seat_id IS NOT NULL), '[]') as seats
+         FROM bookings b
+         LEFT JOIN booking_seats bs ON bs.booking_id = b.id
+         WHERE b.hold_id = $1
+         GROUP BY b.id`,
+        [parsedHoldId]
+      );
+
+      if (existingHoldBooking.rows.length > 0) {
+        return {
+          success: true,
+          booking: existingHoldBooking.rows[0],
+          seats: existingHoldBooking.rows[0].seats,
+          idempotent: true,
+        };
+      }
     }
 
     if (hold.status !== 'ACTIVE') {
@@ -385,7 +473,7 @@ async function confirmHold(currentUser, holdId) {
       throw err;
     }
 
-    // 2. Lock held seats in stable order
+    // 4. Lock held seats in stable order
     const seatsRes = await client.query(
       `SELECT hs.seat_id, s.row_label, s.seat_number
        FROM hold_seats hs
@@ -397,7 +485,7 @@ async function confirmHold(currentUser, holdId) {
     );
     const seatIds = seatsRes.rows.map(r => r.seat_id);
 
-    // 3. Safety check: Verify no partial unique index conflict
+    // 5. Safety check: Verify no partial unique index conflict
     const activeBookingCheck = await client.query(
       `SELECT seat_id FROM booking_seats WHERE seat_id = ANY($1) AND status = 'CONFIRMED' FOR UPDATE`,
       [seatIds]
@@ -409,16 +497,16 @@ async function confirmHold(currentUser, holdId) {
       throw err;
     }
 
-    // 4. Create confirmed Booking record
+    // 6. Create confirmed Booking record (with optional idempotency_key)
     const bookingRes = await client.query(
-      `INSERT INTO bookings (event_id, student_id, hold_id, status)
-       VALUES ($1, $2, $3, 'CONFIRMED')
+      `INSERT INTO bookings (event_id, student_id, hold_id, status, idempotency_key)
+       VALUES ($1, $2, $3, 'CONFIRMED', $4)
        RETURNING *`,
-      [hold.event_id, currentUser.id, parsedHoldId]
+      [hold.event_id, currentUser.id, parsedHoldId, idempotencyKey]
     );
     const booking = bookingRes.rows[0];
 
-    // 5. Create booking_seats associations (Protected by partial unique index)
+    // 7. Create booking_seats associations (Protected by partial unique index)
     for (const seatId of seatIds) {
       await client.query(
         `INSERT INTO booking_seats (booking_id, seat_id, status)
@@ -427,13 +515,13 @@ async function confirmHold(currentUser, holdId) {
       );
     }
 
-    // 6. Mark hold as CONFIRMED
+    // 8. Mark hold as CONFIRMED
     await client.query(
       `UPDATE holds SET status = 'CONFIRMED' WHERE id = $1`,
       [parsedHoldId]
     );
 
-    // 7. Write BOOKING_CONFIRMED audit record in SAME transaction
+    // 9. Write BOOKING_CONFIRMED audit record in SAME transaction
     await writeAudit(currentUser, {
       actorId: currentUser.id,
       actorRole: currentUser.role,
@@ -444,14 +532,24 @@ async function confirmHold(currentUser, holdId) {
         holdId: parsedHoldId,
         seatIds,
         seatsCount: seatIds.length,
+        idempotencyKey,
       },
       client,
+    });
+
+    // 10. Broadcast real-time SSE seat update
+    broadcastSeatUpdate(hold.event_id, {
+      type: 'SEAT_UPDATE',
+      seatIds,
+      state: 'BOOKED',
+      studentId: currentUser.id,
     });
 
     return {
       success: true,
       booking,
       seats: seatsRes.rows,
+      idempotent: false,
     };
   });
 }
@@ -520,6 +618,16 @@ async function cancelBooking(currentUser, bookingId) {
       client,
     });
 
+    // 4. Broadcast real-time SSE seat update (freed seats)
+    broadcastSeatUpdate(booking.event_id, {
+      type: 'SEAT_UPDATE',
+      seatIds,
+      state: 'AVAILABLE',
+    });
+
+    // 5. Trigger waitlist processing for newly available seats
+    await processWaitlist(booking.event_id, client);
+
     return {
       success: true,
       booking: { ...booking, status: 'CANCELLED' },
@@ -575,6 +683,13 @@ async function toggleSeatBlock(currentUser, seatId) {
         `UPDATE seats SET status = 'AVAILABLE' WHERE id = $1 RETURNING *`,
         [parsedSeatId]
       );
+
+      broadcastSeatUpdate(seat.event_id, {
+        type: 'SEAT_UPDATE',
+        seatIds: [parsedSeatId],
+        state: 'AVAILABLE',
+      });
+
       return { seat: updated.rows[0], action: 'UNBLOCKED' };
     }
 
@@ -612,6 +727,12 @@ async function toggleSeatBlock(currentUser, seatId) {
       `UPDATE seats SET status = 'BLOCKED' WHERE id = $1 RETURNING *`,
       [parsedSeatId]
     );
+
+    broadcastSeatUpdate(seat.event_id, {
+      type: 'SEAT_UPDATE',
+      seatIds: [parsedSeatId],
+      state: 'BLOCKED',
+    });
 
     return { seat: updated.rows[0], action: 'BLOCKED' };
   });

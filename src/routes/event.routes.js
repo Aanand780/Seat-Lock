@@ -3,6 +3,7 @@ const router = express.Router();
 const { listEvents, getEventById, updateEvent } = require('../services/event.service');
 const { getSeatMap } = require('../services/booking.service');
 const { requireRole, requireEventOwner } = require('../middleware/rbac.middleware');
+const { seatEvents } = require('../utils/seatEvents');
 
 // Root redirect
 router.get('/', (req, res) => {
@@ -44,6 +45,27 @@ router.get('/events/:id/seats', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// GET /events/:id/seats/stream - Real-time Server-Sent Events (SSE) stream for seat map
+router.get('/events/:id/seats/stream', async (req, res) => {
+  const eventId = parseInt(req.params.id, 10);
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', eventId, timestamp: Date.now() })}\n\n`);
+
+  const onSeatUpdate = (payload) => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  seatEvents.on(`seat-update:${eventId}`, onSeatUpdate);
+
+  req.on('close', () => {
+    seatEvents.off(`seat-update:${eventId}`, onSeatUpdate);
+  });
 });
 
 // GET /events/:id/edit - Edit event page (Organizer/Admin only)
