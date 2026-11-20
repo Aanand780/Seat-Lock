@@ -8,13 +8,15 @@ const { listEvents } = require('../services/event.service');
 router.get('/admin/audit-logs', requireRole('ADMIN'), async (req, res, next) => {
   try {
     const eventId = req.query.eventId || null;
-    const cursorCreatedAt = req.query.cursorCreatedAt || null;
-    const cursorId = req.query.cursorId || null;
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const cursor = req.query.cursor || null;
 
-    const { logs, nextCursor, shardQueried } = await listAuditLogs(req.user, {
+    const { logs, nextCursor, shardQueried, executedSql } = await listAuditLogs(req.user, {
       eventId,
-      cursorCreatedAt,
-      cursorId,
+      dateFrom,
+      dateTo,
+      cursor,
       limit: 50,
     });
 
@@ -26,8 +28,11 @@ router.get('/admin/audit-logs', requireRole('ADMIN'), async (req, res, next) => 
       logs,
       nextCursor,
       shardQueried,
+      executedSql,
       events,
       selectedEventId: eventId || '',
+      dateFrom: dateFrom || '',
+      dateTo: dateTo || '',
     });
   } catch (err) {
     next(err);
