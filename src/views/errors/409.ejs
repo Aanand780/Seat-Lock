@@ -1,0 +1,24 @@
+<%- include('../layouts/header') %>
+
+<div style="max-width: 580px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);">
+    <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">⚠️</div>
+    <h1 style="font-size: 2rem; font-weight: 800; color: #fcd34d; margin-bottom: 0.5rem;">409 &mdash; Resource Conflict</h1>
+    <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 1.5rem;">
+      <%= message || 'A concurrency conflict occurred. The resource was modified or reserved by another request.' %>
+    </p>
+
+    <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; text-align: left; font-size: 0.85rem; margin-bottom: 1.5rem;">
+      <p style="color: var(--text-muted); line-height: 1.4;">
+        Under concurrent festival traffic, another student or organizer completed an update just before yours.
+        Multi-seat hold requests are strictly all-or-nothing.
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; justify-content: center;">
+      <a href="/events" class="btn btn-primary">Refresh & Browse Events</a>
+    </div>
+  </div>
+</div>
+
+<%- include('../layouts/footer') %>

@@ -1,0 +1,26 @@
+{
+  "name": "seat-lock",
+  "version": "1.0.0",
+  "description": "Secure, concurrent event seat-booking platform for college fest",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:init": "node scripts/init-db.js",
+    "test": "node --test tests/*.test.js",
+    "test:phase1": "node --test tests/phase1-rbac.test.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "pg": "^8.13.1",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}

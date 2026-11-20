@@ -1,0 +1,104 @@
+<%- include('../layouts/header') %>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+  <div>
+    <h1 style="font-size: 1.85rem; font-weight: 800;">Sharded Audit Trail</h1>
+    <p style="color: var(--text-muted); font-size: 0.95rem;">Distributed audit records stored across 4 PostgreSQL shards (audit_logs_0..3)</p>
+  </div>
+  <div style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.4); color: #c4b5fd; padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.82rem; font-weight: 700;">
+    Query Execution: <%= shardQueried %>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.5rem;">
+  <form method="GET" action="/admin/audit-logs" style="display: flex; gap: 1rem; align-items: center;">
+    <div style="flex: 1;">
+      <label for="eventId" style="display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.3rem;">Shard Routing / Event Filter</label>
+      <select id="eventId" name="eventId" style="width: 100%; padding: 0.5rem 0.75rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.9rem;">
+        <option value="">All Shards (Scatter-Gather across audit_logs_0..3)</option>
+        <% events.forEach(ev => { %>
+          <option value="<%= ev.id %>" <%= selectedEventId == ev.id ? 'selected' : '' %>>
+            Event #<%= ev.id %>: <%= ev.title %> (Prunes to Shard <%= (ev.id % 4) %>)
+          </option>
+        <% }) %>
+      </select>
+    </div>
+    <div style="align-self: flex-end;">
+      <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem;">Query Logs</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <% if (logs.length === 0) { %>
+    <p style="text-align: center; color: var(--text-muted); padding: 2.5rem;">No audit records found matching query parameters.</p>
+  <% } else { %>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.86rem;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
+            <th style="padding: 0.65rem 0.75rem;">Timestamp</th>
+            <th style="padding: 0.65rem 0.75rem;">Action</th>
+            <th style="padding: 0.65rem 0.75rem;">Table Shard</th>
+            <th style="padding: 0.65rem 0.75rem;">Actor</th>
+            <th style="padding: 0.65rem 0.75rem;">Event</th>
+            <th style="padding: 0.65rem 0.75rem;">Metadata / Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% logs.forEach(log => { %>
+            <%
+              let actionColor = '#93c5fd';
+              let actionBg = 'rgba(59, 130, 246, 0.15)';
+              if (log.action === 'ACCESS_DENIED' || log.action === 'LOGIN_FAILED') {
+                actionColor = '#fca5a5';
+                actionBg = 'rgba(239, 68, 68, 0.15)';
+              } else if (log.action === 'BOOKING_CONFIRMED' || log.action === 'CHECKIN') {
+                actionColor = '#6ee7b7';
+                actionBg = 'rgba(16, 185, 129, 0.15)';
+              } else if (log.action === 'SEAT_HOLD' || log.action === 'HOLD_EXPIRED') {
+                actionColor = '#fcd34d';
+                actionBg = 'rgba(245, 158, 11, 0.15)';
+              }
+            %>
+            <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.4);">
+              <td style="padding: 0.75rem; color: var(--text-muted); font-family: monospace; white-space: nowrap;">
+                <%= new Date(log.created_at).toLocaleString() %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <span style="background: <%= actionBg %>; color: <%= actionColor %>; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.5px;">
+                  <%= log.action %>
+                </span>
+              </td>
+              <td style="padding: 0.75rem; font-family: monospace; color: #c4b5fd;">
+                audit_logs_<%= log.shard %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if (log.actor_name) { %>
+                  <div style="font-weight: 600;"><%= log.actor_name %></div>
+                  <div style="color: var(--text-muted); font-size: 0.75rem;"><%= log.actor_role %> &bull; <%= log.actor_email %></div>
+                <% } else { %>
+                  <span style="color: var(--text-muted);">Unauthenticated (<%= log.actor_role || 'GUEST' %>)</span>
+                <% } %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if (log.event_title) { %>
+                  <div>#<%= log.event_id %>: <%= log.event_title %></div>
+                <% } else if (log.event_id) { %>
+                  <div>Event #<%= log.event_id %></div>
+                <% } else { %>
+                  <span style="color: var(--text-muted);">&mdash;</span>
+                <% } %>
+              </td>
+              <td style="padding: 0.75rem; font-family: monospace; font-size: 0.78rem; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <%= JSON.stringify(log.details) %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../layouts/footer') %>

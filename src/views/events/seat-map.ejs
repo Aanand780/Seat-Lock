@@ -1,0 +1,115 @@
+<%- include('../layouts/header') %>
+
+<div style="margin-bottom: 1.5rem;">
+  <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">&larr; Back to Events</a>
+  <h1 style="font-size: 1.85rem; font-weight: 800; margin-top: 0.5rem;"><%= event.title %></h1>
+  <p style="color: var(--text-muted); font-size: 0.95rem;">📍 <%= event.venue %> &bull; 🕒 <%= new Date(event.start_time).toLocaleString() %></p>
+</div>
+
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <h3 style="font-size: 1.15rem; font-weight: 700;">Stage / Auditorium Layout</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.82rem;">
+      <span style="display: flex; align-items: center; gap: 0.35rem;">
+        <span style="width: 14px; height: 14px; background: #10b981; border-radius: 4px; display: inline-block;"></span> Available
+      </span>
+      <span style="display: flex; align-items: center; gap: 0.35rem;">
+        <span style="width: 14px; height: 14px; background: #f59e0b; border-radius: 4px; display: inline-block;"></span> Held (5m)
+      </span>
+      <span style="display: flex; align-items: center; gap: 0.35rem;">
+        <span style="width: 14px; height: 14px; background: #ef4444; border-radius: 4px; display: inline-block;"></span> Booked
+      </span>
+      <span style="display: flex; align-items: center; gap: 0.35rem;">
+        <span style="width: 14px; height: 14px; background: #475569; border-radius: 4px; display: inline-block;"></span> Blocked
+      </span>
+    </div>
+  </div>
+
+  <div style="background: #0f172a; padding: 1rem; border-radius: 8px; text-align: center; margin-bottom: 2rem; border: 1px dashed var(--card-border); color: var(--text-muted); font-weight: 700; letter-spacing: 2px;">
+    STAGE FRONT
+  </div>
+
+  <form id="holdForm" action="/events/<%= event.id %>/hold" method="POST">
+    <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
+
+    <div style="display: flex; flex-direction: column; gap: 1rem; align-items: center;">
+      <% Object.keys(seatsByRow).sort().forEach(row => { %>
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <div style="width: 28px; font-weight: 700; color: var(--text-muted); text-align: center;"><%= row %></div>
+          <div style="display: flex; gap: 0.5rem;">
+            <% seatsByRow[row].forEach(seat => { %>
+              <%
+                let bg = '#10b981'; // available
+                let cursor = 'pointer';
+                let disabled = false;
+                if (seat.state === 'BLOCKED') {
+                  bg = '#475569';
+                  cursor = 'not-allowed';
+                  disabled = true;
+                } else if (seat.state === 'BOOKED') {
+                  bg = '#ef4444';
+                  cursor = 'not-allowed';
+                  disabled = true;
+                } else if (seat.state === 'HELD') {
+                  bg = seat.heldByMe ? '#3b82f6' : '#f59e0b';
+                  cursor = seat.heldByMe ? 'pointer' : 'not-allowed';
+                  disabled = !seat.heldByMe;
+                }
+              %>
+              <label style="position: relative; cursor: <%= cursor %>;">
+                <input type="checkbox" name="seatIds" value="<%= seat.id %>" <%= disabled ? 'disabled' : '' %>
+                       style="position: absolute; opacity: 0; pointer-events: none;">
+                <div class="seat-badge" id="seat-<%= seat.id %>"
+                     style="width: 36px; height: 36px; border-radius: 6px; background: <%= bg %>; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: white; user-select: none; transition: transform 0.1s, box-shadow 0.1s;">
+                  <%= seat.seat_number %>
+                </div>
+              </label>
+            <% }) %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <% if (locals.isStudent || locals.isAdmin) { %>
+      <div style="margin-top: 2rem; border-top: 1px solid var(--card-border); padding-top: 1.5rem; text-align: center;">
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.75rem;">
+          Students can select 1 to 4 seats. Holds expire automatically after 5 minutes.
+        </p>
+        <button type="submit" class="btn btn-primary" id="holdBtn" disabled>
+          Hold Selected Seats (Phase 2)
+        </button>
+      </div>
+    <% } else if (!locals.user) { %>
+      <div style="margin-top: 2rem; text-align: center;">
+        <p style="color: var(--text-muted); margin-bottom: 0.5rem;">Please log in to hold and book seats.</p>
+        <a href="/login" class="btn btn-primary btn-sm">Log In as Student</a>
+      </div>
+    <% } %>
+  </form>
+</div>
+
+<script>
+  const checkboxes = document.querySelectorAll('input[name="seatIds"]');
+  const holdBtn = document.getElementById('holdBtn');
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const seatBadge = document.getElementById('seat-' + cb.value);
+      if (cb.checked) {
+        seatBadge.style.boxShadow = '0 0 0 3px white, 0 0 10px rgba(59, 130, 246, 0.8)';
+        seatBadge.style.transform = 'scale(1.1)';
+      } else {
+        seatBadge.style.boxShadow = 'none';
+        seatBadge.style.transform = 'scale(1)';
+      }
+
+      const checkedCount = document.querySelectorAll('input[name="seatIds"]:checked').length;
+      if (holdBtn) {
+        holdBtn.disabled = checkedCount === 0 || checkedCount > 4;
+        holdBtn.textContent = checkedCount > 4 ? 'Maximum 4 seats allowed' : `Hold ${checkedCount} Seat(s) (5 min)`;
+      }
+    });
+  });
+</script>
+
+<%- include('../layouts/footer') %>

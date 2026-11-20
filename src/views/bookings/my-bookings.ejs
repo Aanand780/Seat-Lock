@@ -1,0 +1,92 @@
+<%- include('../layouts/header') %>
+
+<div style="margin-bottom: 2rem;">
+  <h1 style="font-size: 1.85rem; font-weight: 800;">My Seat Bookings</h1>
+  <p style="color: var(--text-muted); font-size: 0.95rem;">Manage your active seat holds and confirmed festival reservations</p>
+</div>
+
+<!-- Active Holds Section -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <h3 style="font-size: 1.15rem; font-weight: 700;">⏱️ Active Seat Holds (5-Minute Expiry)</h3>
+  </div>
+
+  <% if (activeHolds.length === 0) { %>
+    <p style="text-align: center; color: var(--text-muted); padding: 1.5rem;">You do not have any active holds at the moment.</p>
+  <% } else { %>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <% activeHolds.forEach(hold => { %>
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h4 style="font-size: 1.1rem; font-weight: 700;"><%= hold.event_title %></h4>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0;">📍 <%= hold.venue %> &bull; <%= new Date(hold.start_time).toLocaleDateString() %></div>
+            <div style="margin-top: 0.5rem;">
+              <strong>Held Seats:</strong>
+              <% (hold.seats || []).forEach(s => { %>
+                <span style="background: #f59e0b; color: black; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.8rem; margin-right: 0.25rem;">
+                  <%= s.row %><%= s.number %>
+                </span>
+              <% }) %>
+            </div>
+            <div style="font-size: 0.82rem; color: #fcd34d; margin-top: 0.5rem;" id="timer-<%= hold.id %>">
+              Expires at: <%= new Date(hold.expires_at).toLocaleTimeString() %>
+            </div>
+          </div>
+
+          <form action="/holds/<%= hold.id %>/confirm" method="POST" style="margin: 0;">
+            <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
+            <button type="submit" class="btn btn-primary">Confirm Booking</button>
+          </form>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<!-- Confirmed Bookings Section -->
+<div class="card">
+  <div class="card-header">
+    <h3 style="font-size: 1.15rem; font-weight: 700;">🎟️ Confirmed Event Bookings</h3>
+  </div>
+
+  <% if (bookings.length === 0) { %>
+    <p style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No bookings found. Head to the events page to reserve seats!</p>
+  <% } else { %>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <% bookings.forEach(booking => { %>
+        <div style="border: 1px solid var(--card-border); border-radius: 8px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+              <h4 style="font-size: 1.1rem; font-weight: 700;"><%= booking.event_title %></h4>
+              <% if (booking.status === 'CONFIRMED') { %>
+                <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 9999px;">CONFIRMED</span>
+              <% } else { %>
+                <span style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 9999px;">CANCELLED</span>
+              <% } %>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              📍 <%= booking.venue %> &bull; Booking Reference: #<%= booking.id %>
+            </div>
+            <div>
+              <strong>Seats:</strong>
+              <% (booking.seats || []).forEach(s => { %>
+                <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.8rem; margin-right: 0.25rem;">
+                  <%= s.row %><%= s.number %>
+                </span>
+              <% }) %>
+            </div>
+          </div>
+
+          <% if (booking.status === 'CONFIRMED') { %>
+            <form action="/bookings/<%= booking.id %>/cancel" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to cancel this booking? The seats will immediately become available to other students.');">
+              <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
+              <button type="submit" class="btn btn-secondary btn-sm" style="color: #fca5a5;">Cancel Booking</button>
+            </form>
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../layouts/footer') %>
