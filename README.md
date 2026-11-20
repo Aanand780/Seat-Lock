@@ -4,7 +4,7 @@ A secure, server-rendered (SSR) event seat-booking platform built for college fe
 
 ---
 
-## Concurrency & Locking Strategy
+## 1. Concurrency & Locking Strategy (Why it Works)
 
 > 1. To completely eliminate double bookings under high concurrency, SeatLock encapsulates every hold, confirmation, and cancellation inside a single ACID PostgreSQL transaction.
 > 2. Contested seats are locked row-by-row using `SELECT ... FOR UPDATE` ordered strictly by primary key (`ORDER BY id ASC`), preventing circular deadlocks when concurrent users request overlapping seat selections.
@@ -14,106 +14,166 @@ A secure, server-rendered (SSR) event seat-booking platform built for college fe
 
 ---
 
-## Tech Stack & Architecture
+## 2. Audit Sharding Architecture
 
-- **Runtime**: Node.js 20 LTS
-- **Web Framework**: Express 4 (SSR with EJS templates, strictly no SPA / React frontend)
-- **Database**: PostgreSQL 16/17/19 with raw SQL via the native `pg` client
-- **Session Store**: `express-session` with `connect-pg-simple` PostgreSQL backend
-- **Security**: Bcrypt password hashing, SameSite + HttpOnly cookies, Cryptographic CSRF tokens
-- **Layered Rules**: `routes -> middleware -> services -> db`. Routes never execute SQL. Service methods accept `currentUser` first and independently validate permissions.
+SeatLock partitions all auditable activity records across four distinct PostgreSQL tables: `audit_logs_0`, `audit_logs_1`, `audit_logs_2`, and `audit_logs_3`.
+
+### Shard Routing Algorithm
+- **Deterministic 32-bit FNV-1a Hash**:
+  ```javascript
+  function stableHash(key) {
+    let hash = 2166136261;
+    const str = String(key);
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0);
+  }
+  function getAuditShard(eventId, actorId) {
+    const key = (eventId !== null && eventId !== undefined) ? eventId : actorId;
+    return stableHash(key) % 4;
+  }
+  ```
+- **Event-Related Actions** (`SEAT_HOLD`, `BOOKING_CONFIRMED`, `CHECKIN`, etc.): Routed by `stable_hash(event_id) mod 4`.
+- **Non-Event Actions** (`LOGIN`, `LOGIN_FAILED`, etc.): Routed by `stable_hash(actor_id) mod 4`.
+- **Transactional Consistency**: Booking audit rows are written using the exact same transaction client (`client`) that locks and commits the booking.
+- **Shard Pruning vs Scatter-Gather**:
+  - **Filtered by Event**: Targets **one shard only** (`audit_logs_${shard}`), bypassing all other tables.
+  - **Unfiltered**: Fires 4 concurrent queries across `audit_logs_0..3` via `Promise.all()`, merges rows in memory, and returns the top 50 with `(created_at, id)` cursor pagination.
+
+### 4-to-8 Shard Migration Plan
+1. **Mathematical Invariant**: Because $8 = 4 \times 2$, changing from `hash % 4` to `hash % 8` causes each existing shard $i \in \{0, 1, 2, 3\}$ to split cleanly into exactly two target shards: $i$ and $(i + 4)$.
+2. **Phase A (DDL Creation)**:
+   ```sql
+   CREATE TABLE audit_logs_4 (LIKE audit_logs_0 INCLUDING ALL);
+   CREATE TABLE audit_logs_5 (LIKE audit_logs_0 INCLUDING ALL);
+   CREATE TABLE audit_logs_6 (LIKE audit_logs_0 INCLUDING ALL);
+   CREATE TABLE audit_logs_7 (LIKE audit_logs_0 INCLUDING ALL);
+   ```
+3. **Phase B (Online Split & Backfill)**:
+   Run transactional split for each shard $i \in \{0, 1, 2, 3\}$:
+   ```sql
+   WITH moved AS (
+     DELETE FROM audit_logs_0 
+     WHERE (stable_hash(COALESCE(event_id::text, actor_id::text)) % 8) = 4
+     RETURNING *
+   )
+   INSERT INTO audit_logs_4 SELECT * FROM moved;
+   ```
+4. **Phase C (Zero-Downtime Cutover)**:
+   Deploy application configuration setting `NUM_SHARDS = 8`. `getAuditShard` now returns `hash % 8`.
+5. **Phase D (Validation)**:
+   Run row-count parity assertions across shards 0..7.
 
 ---
 
-## Core Entities & Data Model
+## 3. Project Structure & Layered Architecture
 
-- `users`: ID, name, email, password_hash, role (`ADMIN`, `ORGANIZER`, `STUDENT`)
-- `events`: ID, title, description, venue, start_time, is_published, organizer_id, version (Optimistic Locking)
-- `seats`: ID, event_id, row_label, seat_number, status (`AVAILABLE`, `BLOCKED`)
-- `holds`: ID, event_id, student_id, expires_at, status (`ACTIVE`, `CONFIRMED`, `EXPIRED`, `RELEASED`)
-- `hold_seats`: hold_id, seat_id mapping
-- `bookings`: ID, event_id, student_id, hold_id, status (`CONFIRMED`, `CANCELLED`), checked_in, checked_in_at
-- `booking_seats`: booking_id, seat_id, status (`CONFIRMED`, `CANCELLED`)
-  - **Partial Unique Index**: `CREATE UNIQUE INDEX uq_active_booking_seat ON booking_seats(seat_id) WHERE status = 'CONFIRMED';`
-- `audit_logs_0..3`: Sharded by `stable_hash(event_id) mod 4` (or `actor_id` for login/non-event actions)
+```
+d:\Seat Lock\
+├── docker-compose.yml              # PostgreSQL container & application definition
+├── Dockerfile                      # Node.js 20 production container
+├── package.json
+├── README.md
+├── scripts/
+│   ├── schema.sql                  # PostgreSQL schema, partial unique index, audit shards
+│   ├── seed.sql                    # Seeded users (bcrypt), events, seats
+│   ├── init-db.js                  # Database initializer and seeder script
+│   ├── load-test.js                # High-concurrency automated stress test (50 workers)
+│   └── migrations/
+│       └── 001_partial_unique_index.sql
+├── src/
+│   ├── server.js                   # HTTP entrypoint with graceful shutdown
+│   ├── app.js                      # Express configuration, sessions, CSRF, EJS view engine
+│   ├── config/
+│   │   ├── db.js                   # pg.Pool and withTransaction helper with 2s lock timeout
+│   │   └── session.js              # express-session with connect-pg-simple store
+│   ├── middleware/
+│   │   ├── auth.middleware.js      # Session context and req.user / res.locals injection
+│   │   ├── rbac.middleware.js      # requireLogin, requireRole, requireEventOwner
+│   │   ├── csrf.middleware.js      # Cryptographic CSRF token validation on POST/PUT/DELETE
+│   │   └── error.middleware.js     # 403, 404, 409, 503, 500 error pages & code mappings
+│   ├── services/
+│   │   ├── audit.service.js        # writeAudit (transactional), listAuditLogs (pruning & cursor)
+│   │   ├── booking.service.js      # holdSeats (FOR UPDATE), confirmHold, cancelBooking, getSeatMap
+│   │   ├── event.service.js        # updateEvent (optimistic locking), listEventBookings, checkIn
+│   │   └── user.service.js         # authenticateUser, bcrypt compare, audit hooks
+│   ├── utils/
+│   │   ├── deny.js                 # Central deny() helper logging ACCESS_DENIED and HTTP 403
+│   │   └── sharding.js             # Deterministic 32-bit FNV-1a hash algorithm
+│   ├── routes/
+│   │   ├── auth.routes.js          # /login, /logout (No direct SQL)
+│   │   ├── event.routes.js         # /events, /events/:id/seats, /events/:id/edit (No direct SQL)
+│   │   ├── booking.routes.js       # /my-bookings, /events/:id/hold, /confirm, /cancel (No direct SQL)
+│   │   ├── organizer.routes.js     # /organizer/events/:id/attendees, /checkin (No direct SQL)
+│   │   └── audit.routes.js         # /admin/audit-logs (No direct SQL)
+│   └── views/
+│       ├── layouts/                # header.ejs (role-aware navbar), footer.ejs
+│       ├── auth/                   # login.ejs (prefill quick-login buttons)
+│       ├── events/                 # index.ejs, seat-map.ejs, edit.ejs, attendees.ejs
+│       ├── bookings/               # my-bookings.ejs (countdown timer & cancellation)
+│       ├── audit/                  # index.ejs (shard queries diagnostic & cursor pagination)
+│       └── errors/                 # 403.ejs, 404.ejs, 409.ejs, 503.ejs, 500.ejs
+└── tests/
+    ├── sharding.test.js            # Deterministic hash & shard boundary unit tests
+    ├── phase1-rbac.test.js         # Dual-layer RBAC, sessions, and CSRF tests
+    ├── phase2-concurrency.test.js  # 20-way single-seat concurrency race test
+    ├── phase3-audit.test.js        # Single-shard pruning vs 4-shard scatter-gather
+    └── phase4-checkin.test.js      # Organizer event ownership & attendee check-in tests
+```
 
 ---
 
-## Quickstart & Setup
+## 4. Setup & Running the Application
 
-### Option 1: Docker Compose (One-command run)
+### Option 1: Docker Compose (One Command)
 ```bash
 docker compose up --build
 ```
-The application will start on `http://localhost:3000` with PostgreSQL containerized and initialized.
+Access at `http://localhost:3000`.
 
-### Option 2: Local Node.js + PostgreSQL
+### Option 2: Local Node.js (v20+) + PostgreSQL
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Configure environment (.env)
-PORT=3000
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=seatlock
-PGUSER=postgres
-PGPASSWORD=yourpassword
-SESSION_SECRET=seatlock-super-secure-production-secret-key-32chars
+# 2. Configure .env
+cp .env.example .env
 
-# 3. Initialize schema & seed test accounts
+# 3. Apply schema & seed test accounts
 npm run db:init
 
-# 4. Start application
+# 4. Start the application
 npm start
 ```
 
 ---
 
-## Seed Accounts (Quick Login)
+## 5. Seeded Credentials
 
-| Role | Email | Password |
-|---|---|---|
-| **Admin** | `admin@collegefest.edu` | `Password123!` |
-| **Organizer** | `organizer@collegefest.edu` | `Password123!` |
-| **Organizer 2** | `sports@collegefest.edu` | `Password123!` |
-| **Student** | `student@collegefest.edu` | `Password123!` |
-| **Student 2** | `priya@collegefest.edu` | `Password123!` |
+| Role | Email | Password | Allowed Capabilities |
+|---|---|---|---|
+| **Admin** | `admin@collegefest.edu` | `Password123!` | View all events, check in any attendee, view sharded audit logs across all tables |
+| **Organizer 1** | `organizer@collegefest.edu` | `Password123!` | Manage own events, block seats, check in own attendees |
+| **Organizer 2** | `sports@collegefest.edu` | `Password123!` | Manage own sports events; restricted from Organizer 1's events |
+| **Student 1** | `student@collegefest.edu` | `Password123!` | Browse published shows, hold 1–4 seats (5 min), confirm, cancel own bookings |
+| **Student 2** | `priya@collegefest.edu` | `Password123!` | Browse, hold, confirm, cancel bookings |
 
 ---
 
-## Running Automated Tests
+## 6. Automated Test Suites & Load Testing
 
 ```bash
-# Run all tests (deterministic sharding, RBAC, 20-way concurrency test)
+# Run entire test suite (37 tests across all phases)
 npm test
 
-# Run Phase 1 RBAC and Security tests only
-npm run test:phase1
+# Run high-concurrency load test (50 simultaneous requests competing for one seat)
+npm run load-test
 
-# Run Phase 2 Concurrency and Pessimistic Row Locking acceptance tests only
-npm run test:phase2
+# Run individual phase suites
+npm run test:phase1  # RBAC, CSRF, Secure Sessions
+npm run test:phase2  # 20-way Concurrency Race, Lock Timeout, Hold Replacement
+npm run test:phase3  # Audit Sharding, Shard Pruning, 4-Shard Scatter-Gather
+npm run test:phase4  # Organizer Ownership, Attendee Check-In
 ```
-
----
-
-## 8-Minute Hackathon Demo Script
-
-1. **Student Booking Flow**:
-   - Log in as `student@collegefest.edu`.
-   - Browse published fest events, navigate to Seat Map.
-   - Select 2 seats and click **Hold Selected Seats (5 min)**.
-   - Navigate to **My Bookings**, observe active hold countdown.
-   - Click **Confirm Booking**; seat status immediately becomes `BOOKED`.
-2. **Security & RBAC (HTTP 403 Proof)**:
-   - While logged in as `student@collegefest.edu`, attempt to open `/admin/audit-logs`.
-   - Express route middleware & service layer trigger `deny()`.
-   - The user receives an SSR `403 - Access Denied` error page.
-   - Database writes an `ACCESS_DENIED` audit record into the routed shard.
-3. **20-Way Concurrency Verification**:
-   - Execute `npm run test:phase2`.
-   - Observe 20 simultaneous parallel requests for the exact same seat producing **exactly 1 winner and 19 conflicts (409)**.
-4. **Sharded Audit Log Viewer**:
-   - Log in as `admin@collegefest.edu`, navigate to **Audit Logs (Sharded)**.
-   - Select an event: UI indicates **Shard Pruning** (queries 1 shard).
-   - Clear filter: UI indicates **Scatter-Gather** (queries all 4 shards and merges results with cursor pagination).
