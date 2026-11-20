@@ -1,6 +1,6 @@
 # SeatLock &mdash; High-Concurrency Event Seat Booking Platform
 
-A secure, server-rendered (SSR) event seat-booking platform built for college fests. SeatLock guarantees zero double bookings under heavy concurrent spikes, enforces dual-layer server-side role-based access control (Admin, Organizer, Student), features a two-step booking lifecycle (5-minute hold to confirmation), and writes auditable activity across four sharded audit tables.
+A secure, server-rendered (SSR) event seat-booking platform built for college fests. SeatLock guarantees zero double bookings under heavy concurrent spikes, enforces dual-layer server-side role-based access control (Admin, Organizer, Student), features a two-step booking lifecycle (3-minute hold to confirmation), and writes auditable activity across four sharded audit tables.
 
 ---
 
@@ -9,7 +9,7 @@ A secure, server-rendered (SSR) event seat-booking platform built for college fe
 > 1. To completely eliminate double bookings under high concurrency, SeatLock encapsulates every hold, confirmation, and cancellation inside a single ACID PostgreSQL transaction.
 > 2. Contested seats are locked row-by-row using `SELECT ... FOR UPDATE` ordered strictly by primary key (`ORDER BY id ASC`), preventing circular deadlocks when concurrent users request overlapping seat selections.
 > 3. Every transaction enforces a 2-second timeout via `SET LOCAL lock_timeout = '2s'`, immediately releasing waiting connections and returning HTTP 503 instead of hanging the application server under load.
-> 4. Active hold expirations (5-minute TTL) and multi-seat availability are re-evaluated inside the locked critical section, guaranteeing atomic all-or-nothing hold placement before any state mutation.
+> 4. Active hold expirations (3-minute TTL) and multi-seat availability are re-evaluated inside the locked critical section, guaranteeing atomic all-or-nothing hold placement before any state mutation.
 > 5. As an impenetrable schema-level safety net, a PostgreSQL partial unique index on `booking_seats (seat_id) WHERE status = 'CONFIRMED'` guarantees that double booking remains physically impossible even in the event of an application software fault.
 
 ---
@@ -157,7 +157,7 @@ npm start
 | **Admin** | `admin@collegefest.edu` | `Password123!` | View all events, check in any attendee, view sharded audit logs across all tables |
 | **Organizer 1** | `organizer@collegefest.edu` | `Password123!` | Manage own events, block seats, check in own attendees |
 | **Organizer 2** | `sports@collegefest.edu` | `Password123!` | Manage own sports events; restricted from Organizer 1's events |
-| **Student 1** | `student@collegefest.edu` | `Password123!` | Browse published shows, hold 1–4 seats (5 min), confirm, cancel own bookings |
+| **Student 1** | `student@collegefest.edu` | `Password123!` | Browse published shows, hold 1–4 seats (3 min), confirm, cancel own bookings |
 | **Student 2** | `priya@collegefest.edu` | `Password123!` | Browse, hold, confirm, cancel bookings |
 
 ---

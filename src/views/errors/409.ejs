@@ -1,22 +1,29 @@
 <%- include('../layouts/header') %>
 
-<div style="max-width: 580px; margin: 4rem auto; text-align: center;">
-  <div class="card" style="border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);">
-    <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">⚠️</div>
-    <h1 style="font-size: 2rem; font-weight: 800; color: #fcd34d; margin-bottom: 0.5rem;">409 &mdash; Resource Conflict</h1>
-    <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 1.5rem;">
-      <%= message || 'A concurrency conflict occurred. The resource was modified or reserved by another request.' %>
+<div style="max-width: 560px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="box-shadow: var(--shadow-md); padding: 2.5rem 2rem;">
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: var(--warning-light); color: var(--warning); border-radius: 50%; margin-bottom: 1.25rem; border: 1px solid var(--warning-border);">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem; letter-spacing: -0.02em;">
+      409 &mdash; Resource Conflict
+    </h1>
+    <p style="color: var(--text-secondary); font-size: 0.9375rem; margin-bottom: 1.5rem; line-height: 1.5;">
+      <%= message || 'A concurrency conflict occurred. The resource was modified or reserved by another concurrent request.' %>
     </p>
 
-    <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; text-align: left; font-size: 0.85rem; margin-bottom: 1.5rem;">
-      <p style="color: var(--text-muted); line-height: 1.4;">
-        Under concurrent festival traffic, another student or organizer completed an update just before yours.
-        Multi-seat hold requests are strictly all-or-nothing.
-      </p>
+    <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1rem 1.25rem; text-align: left; font-size: 0.8125rem; margin-bottom: 1.5rem; line-height: 1.5; color: var(--text-secondary);">
+      <strong style="color: var(--text-primary); display: block; margin-bottom: 0.25rem;">ACID Concurrency Safeguard:</strong>
+      Under concurrent festival load, another student secured or modified this seat immediately prior to your transaction committing. Multi-seat hold requests are strictly all-or-nothing to prevent fragmented bookings.
     </div>
 
     <div style="display: flex; gap: 0.75rem; justify-content: center;">
-      <a href="/events" class="btn btn-primary">Refresh & Browse Events</a>
+      <a href="/events" class="btn btn-primary" style="font-weight: 600;">Refresh & Browse Events</a>
     </div>
   </div>
 </div>

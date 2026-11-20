@@ -1,0 +1,105 @@
+<%- include('../layouts/header') %>
+
+<div style="max-width: 640px; margin: 2rem auto;">
+  <div style="margin-bottom: 1.5rem;">
+    <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.75rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      <span>Back to Events</span>
+    </a>
+    
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">Create New Event</h1>
+    <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.15rem;">Set up festival schedule and generate initial auditorium seat inventory</p>
+  </div>
+
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger" role="alert">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 0.1rem;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <div><%= error %></div>
+    </div>
+  <% } %>
+
+  <div class="card" style="box-shadow: var(--shadow-md);">
+    <form action="/events/new" method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
+
+      <div class="form-group">
+        <label for="title" class="form-label">Event Title</label>
+        <input type="text" id="title" name="title" required maxlength="200" value="<%= form.title %>" placeholder="e.g. Battle of the Bands 2026" class="form-control">
+      </div>
+
+      <div class="form-group">
+        <label for="description" class="form-label">Description</label>
+        <textarea id="description" name="description" rows="3" maxlength="5000" placeholder="Brief details about the performance or guest speakers" class="form-control"><%= form.description %></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="venue" class="form-label">Auditorium / Venue</label>
+        <input type="text" id="venue" name="venue" required maxlength="200" value="<%= form.venue %>" placeholder="e.g. Main Campus Auditorium" class="form-control">
+      </div>
+
+      <div class="form-group">
+        <label for="theme_photo" class="form-label">Event Theme Photo</label>
+        <input type="file" id="theme_photo" name="theme_photo" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control">
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.3rem;">JPG, PNG, WebP, or GIF. Maximum size: 5 MB.</span>
+        <img id="theme-photo-preview" alt="Selected event theme preview" hidden style="max-width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); margin-top: 0.75rem;">
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+        <div>
+          <label for="start_time" class="form-label">Start Date & Time</label>
+          <input type="datetime-local" id="start_time" name="start_time" required value="<%= form.start_time %>" class="form-control">
+        </div>
+
+        <div>
+          <label for="end_time" class="form-label">End Date & Time</label>
+          <input type="datetime-local" id="end_time" name="end_time" required value="<%= form.end_time %>" class="form-control">
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+        <div>
+          <label for="row_count" class="form-label">Seat Rows (A–Z)</label>
+          <input type="number" id="row_count" name="row_count" required min="1" max="26" value="<%= form.row_count %>" class="form-control">
+          <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Letters A to Z</span>
+        </div>
+        <div>
+          <label for="seats_per_row" class="form-label">Seats per Row</label>
+          <input type="number" id="seats_per_row" name="seats_per_row" required min="1" max="100" value="<%= form.seats_per_row %>" class="form-control">
+          <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Numbered 1 to N</span>
+        </div>
+      </div>
+
+      <div class="form-group" style="padding: 0.85rem 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-default); display: flex; align-items: center; gap: 0.65rem;">
+        <input type="checkbox" id="is_published" name="is_published" <%= form.is_published ? 'checked' : '' %>>
+        <label for="is_published" style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary); cursor: pointer; margin: 0;">
+          Publish to students immediately
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-default);">
+        <a href="/events" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="font-weight: 600;">Create Event & Generate Seats</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.getElementById('theme_photo')?.addEventListener('change', event => {
+    const preview = document.getElementById('theme-photo-preview');
+    const file = event.target.files?.[0];
+    if (!preview) return;
+    if (!file) { preview.hidden = true; preview.removeAttribute('src'); return; }
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+  });
+</script>
+
+<%- include('../layouts/footer') %>

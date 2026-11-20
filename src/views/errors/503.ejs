@@ -1,21 +1,28 @@
 <%- include('../layouts/header') %>
 
-<div style="max-width: 580px; margin: 4rem auto; text-align: center;">
-  <div class="card" style="border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);">
-    <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">⏳</div>
-    <h1 style="font-size: 2rem; font-weight: 800; color: #fcd34d; margin-bottom: 0.5rem;">503 &mdash; Server Busy / Lock Timeout</h1>
-    <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 1.5rem;">
+<div style="max-width: 560px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="box-shadow: var(--shadow-md); padding: 2.5rem 2rem;">
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: var(--warning-light); color: var(--warning); border-radius: 50%; margin-bottom: 1.25rem; border: 1px solid var(--warning-border);">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    </div>
+
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem; letter-spacing: -0.02em;">
+      503 &mdash; Server Busy / Lock Timeout
+    </h1>
+    <p style="color: var(--text-secondary); font-size: 0.9375rem; margin-bottom: 1.5rem; line-height: 1.5;">
       <%= message || 'The seat lock could not be acquired within 2 seconds due to heavy concurrent demand.' %>
     </p>
 
-    <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem; text-align: left; font-size: 0.85rem; margin-bottom: 1.5rem;">
-      <p style="color: var(--text-muted); line-height: 1.4;">
-        To prevent deadlocks and indefinite waits during peak bookings, SeatLock enforces a strict 2-second row-lock timeout. Please retry your request in a moment.
-      </p>
+    <div style="background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 1rem 1.25rem; text-align: left; font-size: 0.8125rem; margin-bottom: 1.5rem; line-height: 1.5; color: var(--text-secondary);">
+      <strong style="color: var(--text-primary); display: block; margin-bottom: 0.25rem;">Pessimistic Lock Timeout Protection:</strong>
+      To prevent database deadlocks and indefinite queue delays during peak festival ticket drops, SeatLock enforces a strict 2-second row-lock timeout. Please retry your request in a moment.
     </div>
 
     <div style="display: flex; gap: 0.75rem; justify-content: center;">
-      <button onclick="window.location.reload()" class="btn btn-primary">Retry Now</button>
+      <button onclick="window.location.reload()" class="btn btn-primary" style="font-weight: 600;">Retry Request</button>
       <a href="/events" class="btn btn-secondary">Browse Events</a>
     </div>
   </div>

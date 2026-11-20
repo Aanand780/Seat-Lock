@@ -1,61 +1,107 @@
 <%- include('../layouts/header') %>
 
-<div style="max-width: 600px; margin: 1.5rem auto;">
+<div style="max-width: 640px; margin: 2rem auto;">
   <div style="margin-bottom: 1.5rem;">
-    <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">&larr; Back to Events</a>
-    <h1 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.5rem;">Edit Event</h1>
-    <p style="color: var(--text-muted); font-size: 0.88rem;">Optimistic Locking Active &bull; Version: <strong><%= event.version %></strong></p>
+    <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.75rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      <span>Back to Events</span>
+    </a>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+      <div>
+        <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">Edit Event</h1>
+        <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.15rem;">Update schedule, venue, and publishing status</p>
+      </div>
+      <div class="badge badge-info" style="font-family: monospace;">
+        Optimistic Locking &bull; v<%= event.version %>
+      </div>
+    </div>
   </div>
 
-  <% if (error) { %>
-    <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem;">
-      <strong>Conflict Detected:</strong> <%= error %>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger" role="alert">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 0.1rem;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <div><strong>Conflict Detected:</strong> <%= error %></div>
     </div>
   <% } %>
 
-  <div class="card">
-    <form action="/events/<%= event.id %>/edit" method="POST">
+  <div class="card" style="box-shadow: var(--shadow-md);">
+    <form action="/events/<%= event.id %>/edit" method="POST" enctype="multipart/form-data">
       <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
-      <!-- Optimistic locking version column -->
       <input type="hidden" name="version" value="<%= event.version %>">
 
-      <div style="margin-bottom: 1.25rem;">
-        <label for="title" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted);">Event Title</label>
-        <input type="text" id="title" name="title" required value="<%= event.title %>"
-               style="width: 100%; padding: 0.65rem 0.85rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.95rem;">
+      <div class="form-group">
+        <label for="title" class="form-label">Event Title</label>
+        <input type="text" id="title" name="title" required value="<%= event.title %>" class="form-control">
       </div>
 
-      <div style="margin-bottom: 1.25rem;">
-        <label for="description" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted);">Description</label>
-        <textarea id="description" name="description" rows="3"
-                  style="width: 100%; padding: 0.65rem 0.85rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.95rem;"><%= event.description %></textarea>
+      <div class="form-group">
+        <label for="description" class="form-label">Description</label>
+        <textarea id="description" name="description" rows="3" class="form-control"><%= event.description %></textarea>
       </div>
 
-      <div style="margin-bottom: 1.25rem;">
-        <label for="venue" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted);">Venue</label>
-        <input type="text" id="venue" name="venue" required value="<%= event.venue %>"
-               style="width: 100%; padding: 0.65rem 0.85rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.95rem;">
+      <div class="form-group">
+        <label for="venue" class="form-label">Auditorium / Venue</label>
+        <input type="text" id="venue" name="venue" required value="<%= event.venue %>" class="form-control">
       </div>
 
-      <div style="margin-bottom: 1.25rem;">
-        <label for="start_time" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--text-muted);">Start Time</label>
-        <input type="datetime-local" id="start_time" name="start_time" required
-               value="<%= new Date(new Date(event.start_time).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) %>"
-               style="width: 100%; padding: 0.65rem 0.85rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.95rem;">
+      <div class="form-group">
+        <label for="theme_photo" class="form-label">Event Theme Photo</label>
+        <% if (event.theme_photo) { %>
+          <img src="<%= event.theme_photo %>" alt="Current event theme" style="display: block; max-width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); margin-bottom: 0.75rem;">
+        <% } %>
+        <input type="file" id="theme_photo" name="theme_photo" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control">
+        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.3rem;">Choose a new image to replace the current one. JPG, PNG, WebP, or GIF up to 5 MB.</span>
+        <img id="theme-photo-preview" alt="Selected event theme preview" hidden style="max-width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-md); margin-top: 0.75rem;">
       </div>
 
-      <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
-        <input type="checkbox" id="is_published" name="is_published" <%= event.is_published ? 'checked' : '' %>
-               style="width: 18px; height: 18px; accent-color: var(--primary);">
-        <label for="is_published" style="font-size: 0.9rem; font-weight: 600;">Published to Students</label>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+        <div>
+          <label for="start_time" class="form-label">Start Date & Time</label>
+          <input type="datetime-local" id="start_time" name="start_time" required
+                 value="<%= new Date(new Date(event.start_time).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) %>"
+                 class="form-control">
+        </div>
+
+        <div>
+          <label for="end_time" class="form-label">End Date & Time</label>
+          <input type="datetime-local" id="end_time" name="end_time" required
+                 value="<%= new Date(new Date(event.end_time || (new Date(event.start_time).getTime() + 3*3600*1000)).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) %>"
+                 class="form-control">
+        </div>
       </div>
 
-      <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+      <div class="form-group" style="padding: 0.85rem 1rem; background: var(--bg-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-default); display: flex; align-items: center; gap: 0.65rem;">
+        <input type="checkbox" id="is_published" name="is_published" <%= event.is_published ? 'checked' : '' %>>
+        <label for="is_published" style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary); cursor: pointer; margin: 0;">
+          Publish to Students (Allows students to view event and reserve seats)
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-default);">
         <a href="/events" class="btn btn-secondary">Cancel</a>
-        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="submit" class="btn btn-primary" style="font-weight: 600;">Save Changes</button>
       </div>
     </form>
   </div>
 </div>
+
+<script>
+  document.getElementById('theme_photo')?.addEventListener('change', event => {
+    const preview = document.getElementById('theme-photo-preview');
+    const file = event.target.files?.[0];
+    if (!preview) return;
+    if (!file) { preview.hidden = true; preview.removeAttribute('src'); return; }
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+  });
+</script>
 
 <%- include('../layouts/footer') %>

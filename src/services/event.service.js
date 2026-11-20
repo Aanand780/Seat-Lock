@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { writeAudit } = require('./audit.service');
+const { deleteEventPhoto } = require('../utils/eventPhotos');
 
 /**
  * List events filtered according to user role.
@@ -109,7 +110,9 @@ async function updateEvent(currentUser, eventId, {
   description,
   venue,
   start_time,
+  end_time,
   is_published,
+  theme_photo,
   version
 }) {
   const event = await getEventById(currentUser, eventId);
@@ -128,6 +131,13 @@ async function updateEvent(currentUser, eventId, {
 
   const currentVersion = parseInt(version, 10);
   const nextVersion = currentVersion + 1;
+  const nextStart = start_time || event.start_time;
+  const nextEnd = end_time || event.end_time;
+  if (!nextEnd || !Number.isFinite(new Date(nextEnd).getTime()) || new Date(nextEnd) <= new Date(nextStart)) {
+    const error = new Error('Event end date and time must be after the start date and time.');
+    error.statusCode = 400;
+    throw error;
+  }
 
   const result = await db.query(`
     UPDATE events
@@ -135,17 +145,21 @@ async function updateEvent(currentUser, eventId, {
         description = COALESCE($2, description),
         venue = COALESCE($3, venue),
         start_time = COALESCE($4, start_time),
-        is_published = COALESCE($5, is_published),
-        version = $6,
+        end_time = COALESCE($5, end_time),
+        is_published = COALESCE($6, is_published),
+        theme_photo = COALESCE($7, theme_photo),
+        version = $8,
         updated_at = NOW()
-    WHERE id = $7 AND version = $8
+    WHERE id = $9 AND version = $10
     RETURNING *;
   `, [
     title,
     description,
     venue,
     start_time,
+    end_time,
     is_published,
+    theme_photo,
     nextVersion,
     eventId,
     currentVersion
@@ -173,6 +187,146 @@ async function updateEvent(currentUser, eventId, {
   });
 
   return updatedEvent;
+}
+
+/** Create an event and its seats atomically for an admin or organizer. */
+async function createEvent(currentUser, {
+  title,
+  description,
+  venue,
+  start_time,
+  end_time,
+  is_published,
+  theme_photo,
+  row_count,
+  seats_per_row,
+}) {
+  if (!currentUser || !['ADMIN', 'ORGANIZER'].includes(currentUser.role)) {
+    const error = new Error('Only admins and organizers can create events.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const normalizedTitle = (title || '').trim();
+  const normalizedVenue = (venue || '').trim();
+  const normalizedDescription = (description || '').trim();
+  const startTime = start_time ? new Date(start_time) : null;
+  const endTime = end_time ? new Date(end_time) : null;
+  const rows = Number(row_count);
+  const seatsPerRow = Number(seats_per_row);
+
+  if (!normalizedTitle || normalizedTitle.length > 200) {
+    const error = new Error('Enter an event title (up to 200 characters).');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!normalizedVenue || normalizedVenue.length > 200) {
+    const error = new Error('Enter a venue (up to 200 characters).');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (normalizedDescription.length > 5000) {
+    const error = new Error('Description must be 5,000 characters or fewer.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!startTime || !Number.isFinite(startTime.getTime())) {
+    const error = new Error('Enter a valid event date and time.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!endTime || !Number.isFinite(endTime.getTime()) || endTime <= startTime) {
+    const error = new Error('Enter an event end date and time after its start.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!Number.isInteger(rows) || rows < 1 || rows > 26 || !Number.isInteger(seatsPerRow) || seatsPerRow < 1 || seatsPerRow > 100) {
+    const error = new Error('Choose 1–26 rows and 1–100 seats per row.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return db.withTransaction(async (client) => {
+    const result = await client.query(
+      `INSERT INTO events (title, description, venue, start_time, end_time, is_published, organizer_id, theme_photo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [normalizedTitle, normalizedDescription || null, normalizedVenue, startTime, endTime, Boolean(is_published), currentUser.id, theme_photo || null]
+    );
+    const event = result.rows[0];
+
+    await client.query(
+      `INSERT INTO seats (event_id, row_label, seat_number)
+       SELECT $1, chr(64 + rows.row_num)::varchar, seat_numbers.seat_num
+       FROM generate_series(1, $2) AS rows(row_num)
+       CROSS JOIN generate_series(1, $3) AS seat_numbers(seat_num)`,
+      [event.id, rows, seatsPerRow]
+    );
+
+    await writeAudit(client, {
+      actorId: currentUser.id,
+      actorRole: currentUser.role,
+      action: 'EVENT_CREATED',
+      eventId: event.id,
+      details: {
+        title: event.title,
+        is_published: event.is_published,
+        seatCount: rows * seatsPerRow,
+      },
+    });
+
+    return event;
+  });
+}
+
+async function deleteEvent(currentUser, eventId) {
+  if (!currentUser || currentUser.role !== 'ADMIN') {
+    const error = new Error('Only admins can delete events.');
+    error.statusCode = 403;
+    throw error;
+  }
+  const deletedEvent = await db.withTransaction(async (client) => {
+    const result = await client.query('SELECT id, title, theme_photo FROM events WHERE id = $1 FOR UPDATE', [eventId]);
+    const event = result.rows[0];
+    if (!event) {
+      const error = new Error('Event not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    await writeAudit(currentUser, {
+      action: 'EVENT_DELETED', eventId: event.id,
+      details: { title: event.title, deletedByAdmin: true }, client,
+    });
+    await client.query('DELETE FROM events WHERE id = $1', [event.id]);
+    return event;
+  });
+  await deleteEventPhoto(deletedEvent.theme_photo).catch(() => {});
+  return deletedEvent;
+}
+
+async function deleteExpiredEvents() {
+  const expiredEvents = await db.withTransaction(async (client) => {
+    const expired = await client.query(
+      `SELECT id, title, end_time, theme_photo FROM events
+       WHERE end_time <= NOW()
+       ORDER BY id ASC
+       FOR UPDATE SKIP LOCKED`
+    );
+    for (const event of expired.rows) {
+      await writeAudit(null, {
+        actorId: null,
+        actorRole: 'SYSTEM',
+        action: 'EVENT_AUTO_DELETED',
+        eventId: event.id,
+        details: { title: event.title, endTime: event.end_time },
+        client,
+      });
+      await client.query('DELETE FROM events WHERE id = $1', [event.id]);
+    }
+    return expired.rows;
+  });
+  await Promise.all(expiredEvents.map(event => deleteEventPhoto(event.theme_photo).catch(() => {})));
+  return expiredEvents.length;
 }
 
 /**
@@ -314,6 +468,9 @@ async function listEventBookings(currentUser, eventId) {
 module.exports = {
   listEvents,
   getEventById,
+  createEvent,
+  deleteEvent,
+  deleteExpiredEvents,
   updateEvent,
   checkIn,
   listEventBookings,

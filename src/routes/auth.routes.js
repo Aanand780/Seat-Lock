@@ -1,6 +1,49 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateUser } = require('../services/user.service');
+const { authenticateUser, createStudentAccount } = require('../services/user.service');
+
+// GET /register
+router.get('/register', (req, res) => {
+  if (req.user) return res.redirect('/events');
+  res.render('auth/register', {
+    title: 'Create Student Account - SeatLock',
+    error: null,
+    name: '',
+    email: '',
+  });
+});
+
+// POST /register: public registration always creates a STUDENT role.
+router.post('/register', async (req, res, next) => {
+  const { name, email, password, confirmPassword } = req.body;
+  const renderForm = (statusCode, error) => res.status(statusCode).render('auth/register', {
+    title: 'Create Student Account - SeatLock',
+    error,
+    name: name || '',
+    email: email || '',
+  });
+
+  if (password !== confirmPassword) {
+    return renderForm(400, 'Passwords do not match.');
+  }
+
+  try {
+    const user = await createStudentAccount({ name, email, password });
+    req.session.regenerate((err) => {
+      if (err) return next(err);
+      req.session.user = user;
+      req.session.save((saveErr) => {
+        if (saveErr) return next(saveErr);
+        return res.redirect('/events');
+      });
+    });
+  } catch (error) {
+    if (error.statusCode === 400 || error.statusCode === 409) {
+      return renderForm(error.statusCode, error.message);
+    }
+    return next(error);
+  }
+});
 
 // GET /login
 router.get('/login', (req, res) => {

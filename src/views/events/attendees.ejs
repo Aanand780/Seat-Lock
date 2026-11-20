@@ -6,84 +6,120 @@
   const pendingCount = totalCount - checkedInCount;
 %>
 
-<div style="margin-bottom: 1.5rem;">
-  <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">&larr; Back to Events</a>
-  <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 0.5rem; flex-wrap: wrap; gap: 1rem;">
+<div style="margin-bottom: 2rem;">
+  <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+    <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.35rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+      <span>Back to Events</span>
+    </a>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1.25rem;">
     <div>
-      <h1 style="font-size: 1.85rem; font-weight: 800;"><%= event.title %> &mdash; Attendee Roster</h1>
-      <p style="color: var(--text-muted); font-size: 0.95rem;">📍 <%= event.venue %> &bull; 🕒 <%= new Date(event.start_time).toLocaleString() %></p>
+      <div class="page-kicker">Event Operations</div>
+      <h1 style="font-size: 1.875rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">
+        <%= event.title %> &mdash; Attendee Roster
+      </h1>
+      <p style="color: var(--text-muted); font-size: 0.9375rem; margin-top: 0.25rem;">
+        📍 <%= event.venue %> &bull; 🕒 <%= new Date(event.start_time).toLocaleString() %>
+      </p>
     </div>
-    <div style="display: flex; gap: 0.75rem;">
-      <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 0.4rem 0.85rem; text-align: center;">
-        <div style="font-size: 0.72rem; color: #6ee7b7; font-weight: 700; text-transform: uppercase;">Checked In</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: #6ee7b7;"><%= checkedInCount %></div>
+
+    <!-- Stat Metric Cards -->
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <div style="background: #ffffff; border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 0.65rem 1.15rem; text-align: center; box-shadow: var(--shadow-xs); min-width: 100px;">
+        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Total Bookings</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary);"><%= totalCount %></div>
       </div>
-      <div style="background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.4); border-radius: 8px; padding: 0.4rem 0.85rem; text-align: center;">
-        <div style="font-size: 0.72rem; color: #cbd5e1; font-weight: 700; text-transform: uppercase;">Pending</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: #cbd5e1;"><%= pendingCount %></div>
+      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: var(--radius-md); padding: 0.65rem 1.15rem; text-align: center; box-shadow: var(--shadow-xs); min-width: 100px;">
+        <div style="font-size: 0.7rem; color: #065f46; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Checked In</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: #059669;"><%= checkedInCount %></div>
       </div>
-      <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 8px; padding: 0.4rem 0.85rem; text-align: center;">
-        <div style="font-size: 0.72rem; color: #93c5fd; font-weight: 700; text-transform: uppercase;">Total</div>
-        <div style="font-size: 1.25rem; font-weight: 800; color: #93c5fd;"><%= totalCount %></div>
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 0.65rem 1.15rem; text-align: center; box-shadow: var(--shadow-xs); min-width: 100px;">
+        <div style="font-size: 0.7rem; color: #92400e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Pending</div>
+        <div style="font-size: 1.35rem; font-weight: 800; color: #d97706;"><%= pendingCount %></div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="card">
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-default); display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">Auditorium Gate Verification</h2>
+      <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.1rem;">Check in attendees upon ticket presentation at the door</p>
+    </div>
+    <span class="badge badge-neutral"><%= bookings.length %> Confirmed Records</span>
+  </div>
+
   <% if (bookings.length === 0) { %>
-    <p style="text-align: center; color: var(--text-muted); padding: 3rem;">No confirmed attendees yet for this event.</p>
+    <div style="text-align: center; padding: 3.5rem 1.5rem; color: var(--text-muted);">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.75rem; opacity: 0.5;">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+      </svg>
+      <p style="font-size: 0.95rem; font-weight: 500;">No confirmed attendees yet for this event</p>
+      <p style="font-size: 0.8125rem; margin-top: 0.25rem;">Students who confirm holds will appear here automatically.</p>
+    </div>
   <% } else { %>
-    <div style="overflow-x: auto;">
-      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+    <div class="table-container" style="border: none; border-radius: 0;">
+      <table>
         <thead>
-          <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.76rem; text-transform: uppercase;">
-            <th style="padding: 0.75rem 1rem;">Booking Ref</th>
-            <th style="padding: 0.75rem 1rem;">Student Details</th>
-            <th style="padding: 0.75rem 1rem;">Assigned Seats</th>
-            <th style="padding: 0.75rem 1rem;">Check-In Status</th>
-            <th style="padding: 0.75rem 1rem; text-align: right;">Action</th>
+          <tr>
+            <th>Booking Ref</th>
+            <th>Student Details</th>
+            <th>Allocated Seats</th>
+            <th>Admission Status</th>
+            <th style="text-align: right;">Action</th>
           </tr>
         </thead>
         <tbody>
           <% bookings.forEach(b => { %>
-            <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.5);">
-              <td style="padding: 0.85rem 1rem; font-family: monospace; font-weight: 700;">
+            <tr>
+              <td style="font-family: monospace; font-weight: 700; color: var(--text-primary);">
                 #<%= b.id %>
               </td>
-              <td style="padding: 0.85rem 1rem;">
-                <div style="font-weight: 600;"><%= b.student_name %></div>
-                <div style="color: var(--text-muted); font-size: 0.8rem;"><%= b.student_email %></div>
+              <td>
+                <div style="font-weight: 600; color: var(--text-primary);"><%= b.student_name %></div>
+                <div style="color: var(--text-muted); font-size: 0.78rem;"><%= b.student_email %></div>
               </td>
-              <td style="padding: 0.85rem 1rem;">
-                <% (b.seats || []).forEach(s => { %>
-                  <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem; margin-right: 0.3rem;">
-                    <%= s.row %><%= s.seat %>
-                  </span>
-                <% }) %>
+              <td>
+                <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                  <% (b.seats || []).forEach(s => { %>
+                    <span class="badge badge-info" style="font-size: 0.75rem;">
+                      <%= s.row %><%= s.seat %>
+                    </span>
+                  <% }) %>
+                </div>
               </td>
-              <td style="padding: 0.85rem 1rem;">
+              <td>
                 <% if (b.checked_in) { %>
-                  <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">
-                    ✓ CHECKED IN
+                  <span class="badge badge-success">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    CHECKED IN
                   </span>
                 <% } else { %>
-                  <span style="background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.4); padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">
+                  <span class="badge badge-neutral">
                     NOT CHECKED IN
                   </span>
                 <% } %>
               </td>
-              <td style="padding: 0.85rem 1rem; text-align: right;">
+              <td style="text-align: right;">
                 <% if (!b.checked_in) { %>
                   <form action="/organizer/bookings/<%= b.id %>/checkin" method="POST" style="margin: 0; display: inline;">
                     <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
                     <input type="hidden" name="redirectUrl" value="/organizer/events/<%= event.id %>/attendees">
-                    <button type="submit" class="btn btn-primary btn-sm">
+                    <button type="submit" class="btn btn-primary btn-sm" style="font-weight: 600;">
                       Check In
                     </button>
                   </form>
                 <% } else { %>
-                  <span style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">
+                  <span style="color: var(--text-muted); font-size: 0.8125rem; font-family: monospace;">
                     <%= new Date(b.checked_in_at).toLocaleTimeString() %>
                   </span>
                 <% } %>

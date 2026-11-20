@@ -107,6 +107,12 @@ async function run() {
       org2Id
     ]);
 
+    let ev3Id = ev3Res.rows[0]?.id;
+    if (!ev3Id) {
+      const existing = await client.query(`SELECT id FROM events WHERE title = 'Inter-College Basketball Championship Final'`);
+      ev3Id = existing.rows[0]?.id;
+    }
+
     // Seed Seats for Event 1 (Rows A, B, C; 10 seats each = 30 seats)
     console.log('Seeding seats for headline event...');
     const rows = ['A', 'B', 'C'];
@@ -117,6 +123,19 @@ async function run() {
           VALUES ($1, $2, $3, 'AVAILABLE')
           ON CONFLICT (event_id, row_label, seat_number) DO NOTHING;
         `, [ev1Id, row, num]);
+      }
+    }
+
+    // Seed the published basketball event too; every published event should
+    // have seats available for students to select.
+    console.log('Seeding seats for basketball event...');
+    for (const row of rows) {
+      for (let num = 1; num <= 10; num++) {
+        await client.query(`
+          INSERT INTO seats (event_id, row_label, seat_number, status)
+          VALUES ($1, $2, $3, 'AVAILABLE')
+          ON CONFLICT (event_id, row_label, seat_number) DO NOTHING;
+        `, [ev3Id, row, num]);
       }
     }
 

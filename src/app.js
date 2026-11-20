@@ -14,6 +14,7 @@ const bookingRoutes = require('./routes/booking.routes');
 const organizerRoutes = require('./routes/organizer.routes');
 const auditRoutes = require('./routes/audit.routes');
 const waitlistRoutes = require('./routes/waitlist.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -41,7 +42,10 @@ app.use(session({
   cookie: {
     maxAge: 1000 * 60 * 60 * 4, // 4 hours
     httpOnly: true,              // Prevent XSS access to session cookie
-    secure: process.env.NODE_ENV === 'production',
+    // Enable secure cookies only when explicitly configured. Compose serves
+    // the app over local HTTP, where production-mode secure cookies are dropped
+    // by browsers and break session-backed CSRF validation.
+    secure: process.env.COOKIE_SECURE === 'true',
     sameSite: 'lax',             // CSRF barrier for top-level navigations
   },
 }));
@@ -59,6 +63,7 @@ app.use('/', bookingRoutes);
 app.use('/', organizerRoutes);
 app.use('/', auditRoutes);
 app.use('/', waitlistRoutes);
+app.use('/', adminRoutes);
 
 // Catch 404
 app.use(notFoundHandler);

@@ -1,55 +1,125 @@
 <%- include('../layouts/header') %>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+<div class="page-header">
   <div>
-    <h1 style="font-size: 1.85rem; font-weight: 800; letter-spacing: -0.5px;">College Fest Events</h1>
-    <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem;">
+    <div class="page-kicker">Event Directory</div>
+    <h1 style="font-size: 1.875rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">College Fest Events</h1>
+    <p style="color: var(--text-muted); font-size: 0.9375rem; margin-top: 0.25rem;">
       <% if (locals.isAdmin) { %>
-        Admin View: Showing all events across all organizers.
+        <span class="badge badge-neutral" style="margin-right: 0.4rem;">Admin Console</span> Showing all events across all festival organizers.
       <% } else if (locals.isOrganizer) { %>
-        Organizer View: Showing events managed by you.
+        <span class="badge badge-warning" style="margin-right: 0.4rem;">Organizer Workspace</span> Showing events managed by your account.
       <% } else { %>
-        Student View: Browse and reserve numbered seats for college fest shows.
+        <span class="badge badge-info" style="margin-right: 0.4rem;">Student Portal</span> Browse festival performances and reserve live numbered seats.
       <% } %>
     </p>
   </div>
+  <% if (locals.isAdmin || locals.isOrganizer) { %>
+    <a href="/events/new" class="btn btn-primary" style="box-shadow: var(--shadow-sm);">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      <span>Create Event</span>
+    </a>
+  <% } %>
 </div>
 
 <% if (events.length === 0) { %>
-  <div class="card" style="text-align: center; padding: 3rem 1.5rem;">
-    <p style="color: var(--text-muted); font-size: 1.1rem;">No events found matching your permissions.</p>
+  <div class="card" style="text-align: center; padding: 4rem 2rem;">
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: var(--bg-subtle); color: var(--text-muted); border-radius: 50%; margin-bottom: 1rem;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+    </div>
+    <h3 style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.35rem;">No events found</h3>
+    <p style="color: var(--text-muted); font-size: 0.875rem; max-width: 420px; margin: 0 auto;">
+      There are currently no events matching your permissions or schedule. Check back later or create a new event.
+    </p>
   </div>
 <% } else { %>
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;">
+  <div class="event-grid">
     <% events.forEach(event => { %>
-      <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div class="event-card">
         <div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);"><%= new Date(event.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></span>
+          <% if (event.theme_photo) { %>
+            <img src="<%= event.theme_photo %>" alt="Theme photo for <%= event.title %>" loading="lazy" style="width: 100%; height: 180px; object-fit: cover; border-radius: var(--radius-md); margin-bottom: 1rem;">
+          <% } %>
+
+          <!-- Status & Schedule Row -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.4rem; color: var(--text-muted); font-size: 0.8125rem; font-weight: 500;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span><%= new Date(event.start_time).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %></span>
+            </div>
             <% if (event.is_published) { %>
-              <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px; text-transform: uppercase;">Published</span>
+              <span class="badge badge-success">Published</span>
             <% } else { %>
-              <span style="background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 9999px; text-transform: uppercase;">Draft</span>
+              <span class="badge badge-warning">Draft</span>
             <% } %>
           </div>
 
-          <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;"><%= event.title %></h3>
-          <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-            <%= event.description || 'Join us for this exciting campus fest event!' %>
+          <!-- Title & Description -->
+          <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; line-height: 1.3;">
+            <%= event.title %>
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.25rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">
+            <%= event.description || 'Join us for this premier campus fest performance!' %>
           </p>
 
-          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-            <div>📍 <strong>Venue:</strong> <%= event.venue %></div>
-            <div>👤 <strong>Organizer:</strong> <%= event.organizer_name %></div>
-            <div>🪑 <strong>Total Seats:</strong> <%= event.total_seats || 30 %></div>
+          <!-- Metadata List -->
+          <div style="background-color: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.8125rem; display: flex; flex-direction: column; gap: 0.45rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <span><strong>Venue:</strong> <%= event.venue %></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span><strong>Organizer:</strong> <%= event.organizer_name || 'Fest Committee' %></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); flex-shrink: 0;">
+                <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                <line x1="9" y1="9" x2="15" y2="9"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+              <span><strong>Capacity:</strong> <%= event.total_seats || 30 %> Numbered Seats</span>
+            </div>
           </div>
         </div>
 
-        <div style="display: flex; gap: 0.5rem; border-top: 1px solid var(--card-border); padding-top: 1rem; margin-top: auto;">
-          <a href="/events/<%= event.id %>/seats" class="btn btn-primary btn-sm" style="flex: 1;">View Seat Map</a>
+        <!-- Action Button Toolbar -->
+        <div style="display: flex; gap: 0.5rem; border-top: 1px solid var(--border-default); padding-top: 1rem; margin-top: auto; flex-wrap: wrap;">
+          <a href="/events/<%= event.id %>/seats" class="btn btn-primary btn-sm" style="flex: 1; font-weight: 600;">
+            View Seat Map
+          </a>
           <% if (locals.isAdmin || (locals.isOrganizer && locals.user.id === event.organizer_id)) { %>
-            <a href="/events/<%= event.id %>/edit" class="btn btn-secondary btn-sm">Edit</a>
-            <a href="/organizer/events/<%= event.id %>/attendees" class="btn btn-secondary btn-sm">Attendees</a>
+            <a href="/events/<%= event.id %>/edit" class="btn btn-secondary btn-sm" title="Edit Event Settings">
+              Edit
+            </a>
+            <a href="/organizer/events/<%= event.id %>/attendees" class="btn btn-secondary btn-sm" title="Manage Attendees & Check-In">
+              Roster
+            </a>
+            <% if (locals.isAdmin) { %>
+              <form action="/admin/events/<%= event.id %>/delete" method="POST" style="margin: 0;" onsubmit="return confirm('Permanently delete this event, its seats, bookings, and tickets?');">
+                <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
+                <button type="submit" class="btn btn-danger btn-sm" title="Delete Event">
+                  Delete
+                </button>
+              </form>
+            <% } %>
           <% } %>
         </div>
       </div>

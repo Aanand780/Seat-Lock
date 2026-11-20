@@ -1,13 +1,57 @@
 const express = require('express');
 const router = express.Router();
-const { listEvents, getEventById, updateEvent } = require('../services/event.service');
+const { listEvents, getEventById, createEvent, updateEvent, deleteEvent } = require('../services/event.service');
 const { getSeatMap } = require('../services/booking.service');
 const { requireRole, requireEventOwner } = require('../middleware/rbac.middleware');
 const { seatEvents } = require('../utils/seatEvents');
+const { themePhotoUpload } = require('../middleware/themePhotoUpload');
+const { saveEventPhoto, deleteEventPhoto } = require('../utils/eventPhotos');
+const { csrfProtection } = require('../middleware/csrf.middleware');
 
 // Root redirect
 router.get('/', (req, res) => {
   res.redirect('/events');
+});
+
+// GET /events/new - Create event form (Admin/Organizer only)
+router.get('/events/new', requireRole('ADMIN', 'ORGANIZER'), (req, res) => {
+  res.render('events/new', {
+    title: 'Create Event - SeatLock',
+    error: null,
+    form: { title: '', description: '', venue: '', start_time: '', end_time: '', row_count: '3', seats_per_row: '10', is_published: false },
+  });
+});
+
+// POST /events/new - Create event and initial seats
+router.post('/events/new', requireRole('ADMIN', 'ORGANIZER'), themePhotoUpload, csrfProtection, async (req, res, next) => {
+  const { title, description, venue, start_time, end_time, row_count, seats_per_row } = req.body;
+  const form = {
+    title: title || '',
+    description: description || '',
+    venue: venue || '',
+    start_time: start_time || '',
+    end_time: end_time || '',
+    row_count: row_count || '',
+    seats_per_row: seats_per_row || '',
+    is_published: req.body.is_published === 'on',
+  };
+
+  let savedPhoto = null;
+  try {
+    savedPhoto = await saveEventPhoto(req.file);
+    const event = await createEvent(req.user, { ...form, theme_photo: savedPhoto, start_time: start_time ? new Date(start_time) : null, end_time: end_time ? new Date(end_time) : null });
+    res.redirect(`/events/${event.id}/edit`);
+  } catch (err) {
+    if (savedPhoto) await deleteEventPhoto(savedPhoto).catch(() => {});
+    if (err.statusCode === 400) {
+      return res.status(400).render('events/new', {
+        title: 'Create Event - SeatLock',
+        error: err.message,
+        form,
+      });
+    }
+    next(err);
+  }
 });
 
 // GET /events - Role-aware event list
@@ -85,22 +129,29 @@ router.get('/events/:id/edit', requireRole('ADMIN', 'ORGANIZER'), requireEventOw
 });
 
 // POST /events/:id/edit - Optimistic locking update
-router.post('/events/:id/edit', requireRole('ADMIN', 'ORGANIZER'), requireEventOwner, async (req, res, next) => {
+router.post('/events/:id/edit', requireRole('ADMIN', 'ORGANIZER'), requireEventOwner, themePhotoUpload, csrfProtection, async (req, res, next) => {
+  let savedPhoto = null;
   try {
     const eventId = parseInt(req.params.id, 10);
-    const { title, description, venue, start_time, is_published, version } = req.body;
+    const { title, description, venue, start_time, end_time, is_published, version } = req.body;
+    const currentEvent = await getEventById(req.user, eventId);
+    savedPhoto = await saveEventPhoto(req.file);
 
     const updatedEvent = await updateEvent(req.user, eventId, {
       title,
       description,
       venue,
       start_time: start_time ? new Date(start_time) : undefined,
+      end_time: end_time ? new Date(end_time) : undefined,
       is_published: is_published === 'on' || is_published === 'true' || is_published === true,
+      theme_photo: savedPhoto || undefined,
       version: parseInt(version, 10),
     });
 
+    if (savedPhoto && currentEvent.theme_photo) await deleteEventPhoto(currentEvent.theme_photo).catch(() => {});
     res.redirect(`/events`);
   } catch (err) {
+    if (savedPhoto) await deleteEventPhoto(savedPhoto).catch(() => {});
     if (err.statusCode === 409) {
       // Re-fetch current version and render conflict error
       const eventId = parseInt(req.params.id, 10);
@@ -115,6 +166,15 @@ router.post('/events/:id/edit', requireRole('ADMIN', 'ORGANIZER'), requireEventO
         return next(err);
       }
     }
+    next(err);
+  }
+});
+
+router.post('/admin/events/:id/delete', requireRole('ADMIN'), async (req, res, next) => {
+  try {
+    await deleteEvent(req.user, parseInt(req.params.id, 10));
+    res.redirect('/events');
+  } catch (err) {
     next(err);
   }
 });

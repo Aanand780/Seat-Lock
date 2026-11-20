@@ -1,6 +1,17 @@
   </main>
-  <footer style="margin-top: auto; border-top: 1px solid var(--card-border); padding: 1.5rem; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-    <p>SeatLock &copy; 2026 &bull; High-Concurrency Event Seat Reservation System &bull; Node.js 20 + PostgreSQL</p>
+  <footer class="site-footer">
+    <div style="max-width: 1280px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 0 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.8125rem;">
+        <span style="font-weight: 600; color: var(--text-primary);">SeatLock Enterprise</span>
+        <span>&bull;</span>
+        <span>ACID Row-Locked Event Booking</span>
+        <span>&bull;</span>
+        <span>Sharded Audit Trail (4 Shards)</span>
+      </div>
+      <div style="color: var(--text-muted); font-size: 0.8125rem;">
+        &copy; <%= new Date().getFullYear() %> College Fest Booking System. All rights reserved.
+      </div>
+    </div>
   </footer>
 </body>
 </html>

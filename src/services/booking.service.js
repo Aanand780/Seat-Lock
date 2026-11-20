@@ -33,7 +33,7 @@ async function cleanupExpiredHolds(client = null) {
           actorRole: 'STUDENT',
           action: 'HOLD_EXPIRED',
           eventId: row.event_id,
-          details: { holdId: row.id, reason: 'Hold duration exceeded 5 minutes' },
+          details: { holdId: row.id, reason: 'Hold duration exceeded 3 minutes' },
           client,
         });
 
@@ -140,7 +140,7 @@ async function getSeatMap(currentUser, eventId) {
 }
 
 /**
- * Hold 1-4 seats atomically for 5 minutes.
+ * Hold 1-4 seats atomically for 3 minutes.
  * Supports lockingMode: 'WAIT' (default), 'NOWAIT', 'SKIP LOCKED'
  *
  * @param {object} currentUser
@@ -315,10 +315,10 @@ async function holdSeats(currentUser, eventId, seatIds, options = {}) {
       );
     }
 
-    // 7. Create New Hold (5-minute expiration)
+    // 7. Create New Hold (3-minute expiration)
     const holdRes = await client.query(
       `INSERT INTO holds (event_id, student_id, expires_at, status)
-       VALUES ($1, $2, NOW() + INTERVAL '5 minutes', 'ACTIVE')
+       VALUES ($1, $2, NOW() + INTERVAL '3 minutes', 'ACTIVE')
        RETURNING *`,
       [parsedEventId, currentUser.id]
     );
@@ -484,6 +484,15 @@ async function confirmHold(currentUser, holdId, options = {}) {
       [parsedHoldId]
     );
     const seatIds = seatsRes.rows.map(r => r.seat_id);
+    let attendeeNames = options.attendeeNames;
+    if (!attendeeNames || !Array.isArray(attendeeNames) || attendeeNames.length === 0) {
+      attendeeNames = seatIds.map(() => currentUser.name || 'Student');
+    }
+    if (attendeeNames.length !== seatIds.length || attendeeNames.some(name => typeof name !== 'string' || !name.trim() || name.trim().length > 100)) {
+      const err = new Error('Enter a name (up to 100 characters) for every held seat.');
+      err.statusCode = 400;
+      throw err;
+    }
 
     // 5. Safety check: Verify no partial unique index conflict
     const activeBookingCheck = await client.query(
@@ -507,11 +516,11 @@ async function confirmHold(currentUser, holdId, options = {}) {
     const booking = bookingRes.rows[0];
 
     // 7. Create booking_seats associations (Protected by partial unique index)
-    for (const seatId of seatIds) {
+    for (let i = 0; i < seatIds.length; i += 1) {
       await client.query(
-        `INSERT INTO booking_seats (booking_id, seat_id, status)
-         VALUES ($1, $2, 'CONFIRMED')`,
-        [booking.id, seatId]
+        `INSERT INTO booking_seats (booking_id, seat_id, attendee_name, status)
+         VALUES ($1, $2, $3, 'CONFIRMED')`,
+        [booking.id, seatIds[i], attendeeNames[i].trim()]
       );
     }
 
@@ -756,7 +765,7 @@ async function listMyBookings(currentUser) {
   // Active holds
   const holdsResult = await db.query(
     `SELECT h.*, e.title as event_title, e.venue, e.start_time,
-            COALESCE(json_agg(json_build_object('id', s.id, 'row', s.row_label, 'number', s.seat_number)) FILTER (WHERE s.id IS NOT NULL), '[]') as seats
+            COALESCE(json_agg(json_build_object('id', s.id, 'row', s.row_label, 'number', s.seat_number) ORDER BY s.id) FILTER (WHERE s.id IS NOT NULL), '[]') as seats
      FROM holds h
      JOIN events e ON h.event_id = e.id
      LEFT JOIN hold_seats hs ON hs.hold_id = h.id
@@ -770,7 +779,7 @@ async function listMyBookings(currentUser) {
   // Confirmed & Cancelled bookings
   const bookingsResult = await db.query(
     `SELECT b.*, e.title as event_title, e.venue, e.start_time,
-            COALESCE(json_agg(json_build_object('id', s.id, 'row', s.row_label, 'number', s.seat_number)) FILTER (WHERE s.id IS NOT NULL), '[]') as seats
+            COALESCE(json_agg(json_build_object('id', s.id, 'row', s.row_label, 'number', s.seat_number, 'attendee_name', bs.attendee_name) ORDER BY s.id) FILTER (WHERE s.id IS NOT NULL), '[]') as seats
      FROM bookings b
      JOIN events e ON b.event_id = e.id
      LEFT JOIN booking_seats bs ON bs.booking_id = b.id
@@ -787,6 +796,35 @@ async function listMyBookings(currentUser) {
   };
 }
 
+async function getBookingTickets(currentUser, bookingId) {
+  const result = await db.query(
+    `SELECT b.id, b.student_id, b.status, b.created_at, e.title AS event_title, e.venue,
+            e.start_time, json_agg(json_build_object(
+              'attendee_name', bs.attendee_name, 'row', s.row_label,
+              'number', s.seat_number, 'seat_id', s.id
+            ) ORDER BY s.row_label, s.seat_number) AS tickets
+     FROM bookings b
+     JOIN events e ON e.id = b.event_id
+     JOIN booking_seats bs ON bs.booking_id = b.id AND bs.status = 'CONFIRMED'
+     JOIN seats s ON s.id = bs.seat_id
+     WHERE b.id = $1 AND b.status = 'CONFIRMED'
+     GROUP BY b.id, e.title, e.venue, e.start_time`,
+    [bookingId]
+  );
+  const booking = result.rows[0];
+  if (!booking) {
+    const err = new Error('Confirmed booking not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (booking.student_id !== currentUser.id && currentUser.role !== 'ADMIN') {
+    const err = new Error('Access denied: You can only view tickets for your own bookings');
+    err.statusCode = 403;
+    throw err;
+  }
+  return booking;
+}
+
 module.exports = {
   cleanupExpiredHolds,
   getSeatMap,
@@ -795,4 +833,5 @@ module.exports = {
   cancelBooking,
   toggleSeatBlock,
   listMyBookings,
+  getBookingTickets,
 };

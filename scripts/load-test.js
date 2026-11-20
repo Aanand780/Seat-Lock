@@ -17,7 +17,7 @@ const db = require('../src/config/db');
 const app = require('../src/app');
 
 const CONCURRENT_WORKERS = 50;
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.LOAD_TEST_PORT || 3009;
 
 async function checkServerRunning(port) {
   return new Promise((resolve) => {

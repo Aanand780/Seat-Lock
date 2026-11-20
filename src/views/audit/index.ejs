@@ -1,13 +1,15 @@
 <%- include('../layouts/header') %>
 
-<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; flex-wrap: wrap; gap: 1.25rem;">
   <div>
-    <h1 style="font-size: 1.85rem; font-weight: 800;">Sharded Audit Trail</h1>
-    <p style="color: var(--text-muted); font-size: 0.95rem;">
-      Distributed audit records across 4 PostgreSQL tables (<code>audit_logs_0..3</code>) routed by <code>stable_hash mod 4</code>.
+    <div class="page-kicker">Compliance & Security</div>
+    <h1 style="font-size: 1.875rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">Sharded Audit Trail</h1>
+    <p style="color: var(--text-muted); font-size: 0.9375rem; margin-top: 0.25rem;">
+      Distributed audit log partition across 4 PostgreSQL tables (<code>audit_logs_0..3</code>) routed by <code>stable_hash mod 4</code>.
     </p>
   </div>
-  <div style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.4); color: #c4b5fd; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.82rem; font-weight: 700;">
+  
+  <div class="badge badge-info" style="padding: 0.5rem 0.85rem; font-size: 0.8125rem; font-family: monospace; font-weight: 600;">
     Target Shard(s): <%= shardQueried %>
   </div>
 </div>
@@ -15,36 +17,34 @@
 <!-- Filter Controls -->
 <div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
   <form method="GET" action="/admin/audit-logs" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-    <div style="flex: 2; min-width: 250px;">
-      <label for="eventId" style="display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.35rem;">
-        Event Filter (Triggers Shard Pruning)
+    <div style="flex: 2; min-width: 260px;">
+      <label for="eventId" class="form-label">
+        Event Filter (Prunes query to 1 Shard)
       </label>
-      <select id="eventId" name="eventId" style="width: 100%; padding: 0.55rem 0.75rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.9rem;">
-        <option value="">All Events (Reads all 4 shards with Scatter-Gather)</option>
+      <select id="eventId" name="eventId" class="form-control" style="font-size: 0.875rem;">
+        <option value="">All Events (Scatter-Gather across all 4 shards)</option>
         <% events.forEach(ev => { %>
           <option value="<%= ev.id %>" <%= selectedEventId == ev.id ? 'selected' : '' %>>
-            Event #<%= ev.id %>: <%= ev.title %> &rarr; Prunes to audit_logs_<%= (ev.id % 4) %>
+            Event #<%= ev.id %>: <%= ev.title %> &rarr; audit_logs_<%= (ev.id % 4) %>
           </option>
         <% }) %>
       </select>
     </div>
 
     <div style="flex: 1; min-width: 150px;">
-      <label for="dateFrom" style="display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.35rem;">From Date</label>
-      <input type="date" id="dateFrom" name="dateFrom" value="<%= dateFrom %>"
-             style="width: 100%; padding: 0.5rem 0.75rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.9rem;">
+      <label for="dateFrom" class="form-label">From Date</label>
+      <input type="date" id="dateFrom" name="dateFrom" value="<%= dateFrom %>" class="form-control" style="font-size: 0.875rem;">
     </div>
 
     <div style="flex: 1; min-width: 150px;">
-      <label for="dateTo" style="display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.35rem;">To Date</label>
-      <input type="date" id="dateTo" name="dateTo" value="<%= dateTo %>"
-             style="width: 100%; padding: 0.5rem 0.75rem; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; color: var(--text); font-size: 0.9rem;">
+      <label for="dateTo" class="form-label">To Date</label>
+      <input type="date" id="dateTo" name="dateTo" value="<%= dateTo %>" class="form-control" style="font-size: 0.875rem;">
     </div>
 
     <div style="display: flex; gap: 0.5rem;">
-      <button type="submit" class="btn btn-primary" style="padding: 0.55rem 1.25rem;">Apply Filter</button>
+      <button type="submit" class="btn btn-primary" style="font-weight: 600;">Apply Filter</button>
       <% if (selectedEventId || dateFrom || dateTo) { %>
-        <a href="/admin/audit-logs" class="btn btn-secondary" style="padding: 0.55rem 1rem;">Reset</a>
+        <a href="/admin/audit-logs" class="btn btn-secondary">Reset</a>
       <% } %>
     </div>
   </form>
@@ -52,81 +52,91 @@
 
 <!-- Shard Execution Diagnostic Box for Judges -->
 <% if (typeof executedSql !== 'undefined' && executedSql.length > 0) { %>
-  <details class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: #090d16; border-color: rgba(59, 130, 246, 0.3);">
-    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 700; color: #93c5fd; user-select: none;">
-      🔍 Database Query Engine: View Executed SQL (<%= executedSql.length %> Shard Query <%= executedSql.length > 1 ? 'Queries' : '' %>)
+  <details class="card" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: var(--bg-subtle); border-color: var(--border-strong);">
+    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); user-select: none; display: flex; align-items: center; gap: 0.5rem;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
+        <polyline points="4 17 10 11 4 5"></polyline>
+        <line x1="12" y1="19" x2="20" y2="19"></line>
+      </svg>
+      <span>SQL Execution Diagnostic: <%= executedSql.length %> Shard <%= executedSql.length > 1 ? 'Queries' : 'Query' %></span>
     </summary>
     <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
       <% executedSql.forEach((q, i) => { %>
-        <pre style="background: #0f172a; border: 1px solid var(--card-border); padding: 0.75rem; border-radius: 6px; font-size: 0.76rem; color: #cbd5e1; overflow-x: auto; white-space: pre-wrap; font-family: monospace;"><code><%= q %></code></pre>
+        <pre style="background: #ffffff; border: 1px solid var(--border-default); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.78rem; color: #1e293b; overflow-x: auto; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; line-height: 1.4;"><code><%= q %></code></pre>
       <% }) %>
     </div>
   </details>
 <% } %>
 
 <!-- Audit Logs Table -->
-<div class="card">
+<div class="card" style="padding: 0; overflow: hidden;">
   <% if (logs.length === 0) { %>
-    <p style="text-align: center; color: var(--text-muted); padding: 3rem;">No audit records found for current criteria.</p>
+    <div style="text-align: center; padding: 3.5rem 1.5rem; color: var(--text-muted);">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.75rem; opacity: 0.5;">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <p style="font-size: 0.95rem; font-weight: 500;">No audit records found matching criteria</p>
+      <p style="font-size: 0.8125rem; margin-top: 0.25rem;">Try adjusting the date range or event filter.</p>
+    </div>
   <% } else { %>
-    <div style="overflow-x: auto;">
-      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.86rem;">
+    <div class="table-container" style="border: none; border-radius: 0;">
+      <table>
         <thead>
-          <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">
-            <th style="padding: 0.75rem 1rem;">Timestamp</th>
-            <th style="padding: 0.75rem 1rem;">Action</th>
-            <th style="padding: 0.75rem 1rem;">Shard Table</th>
-            <th style="padding: 0.75rem 1rem;">Actor</th>
-            <th style="padding: 0.75rem 1rem;">Event</th>
-            <th style="padding: 0.75rem 1rem;">Metadata</th>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>Partition</th>
+            <th>Actor</th>
+            <th>Event Context</th>
+            <th>Details & Metadata</th>
           </tr>
         </thead>
         <tbody>
           <% logs.forEach(log => { %>
             <%
-              let actionColor = '#93c5fd';
-              let actionBg = 'rgba(59, 130, 246, 0.15)';
+              let badgeClass = 'badge-neutral';
               if (log.action === 'ACCESS_DENIED' || log.action === 'LOGIN_FAILED' || log.action === 'SEAT_HOLD_REJECTED') {
-                actionColor = '#fca5a5';
-                actionBg = 'rgba(239, 68, 68, 0.15)';
+                badgeClass = 'badge-danger';
               } else if (log.action === 'BOOKING_CONFIRMED' || log.action === 'CHECKIN') {
-                actionColor = '#6ee7b7';
-                actionBg = 'rgba(16, 185, 129, 0.15)';
+                badgeClass = 'badge-success';
               } else if (log.action === 'SEAT_HOLD' || log.action === 'HOLD_EXPIRED') {
-                actionColor = '#fcd34d';
-                actionBg = 'rgba(245, 158, 11, 0.15)';
+                badgeClass = 'badge-warning';
+              } else if (log.action === 'LOGIN' || log.action === 'LOGOUT') {
+                badgeClass = 'badge-info';
               }
             %>
-            <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.4);">
-              <td style="padding: 0.75rem 1rem; color: var(--text-muted); font-family: monospace; font-size: 0.8rem; white-space: nowrap;">
+            <tr>
+              <td style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; white-space: nowrap;">
                 <%= new Date(log.created_at).toLocaleString() %>
               </td>
-              <td style="padding: 0.75rem 1rem;">
-                <span style="background: <%= actionBg %>; color: <%= actionColor %>; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.5px;">
+              <td>
+                <span class="badge <%= badgeClass %>" style="font-size: 0.72rem; letter-spacing: 0.04em;">
                   <%= log.action %>
                 </span>
               </td>
-              <td style="padding: 0.75rem 1rem; font-family: monospace; font-weight: 700; color: #c4b5fd;">
+              <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent); font-size: 0.8125rem;">
                 audit_logs_<%= log.shard %>
               </td>
-              <td style="padding: 0.75rem 1rem;">
+              <td>
                 <% if (log.actor_name) { %>
-                  <div style="font-weight: 600;"><%= log.actor_name %></div>
+                  <div style="font-weight: 600; color: var(--text-primary);"><%= log.actor_name %></div>
                   <div style="color: var(--text-muted); font-size: 0.75rem;"><%= log.actor_role %> &bull; <%= log.actor_email %></div>
                 <% } else { %>
-                  <span style="color: var(--text-muted);">Unauthenticated (<%= log.actor_role || 'GUEST' %>)</span>
+                  <span style="color: var(--text-muted); font-size: 0.8125rem;">Unauthenticated (<%= log.actor_role || 'GUEST' %>)</span>
                 <% } %>
               </td>
-              <td style="padding: 0.75rem 1rem;">
+              <td>
                 <% if (log.event_title) { %>
-                  <div style="font-weight: 500;">#<%= log.event_id %>: <%= log.event_title %></div>
+                  <div style="font-weight: 500; color: var(--text-primary);">#<%= log.event_id %>: <%= log.event_title %></div>
                 <% } else if (log.event_id) { %>
-                  <div>Event #<%= log.event_id %></div>
+                  <div style="color: var(--text-primary);">Event #<%= log.event_id %></div>
                 <% } else { %>
-                  <span style="color: var(--text-muted);">&mdash;</span>
+                  <span style="color: var(--text-tertiary);">&mdash;</span>
                 <% } %>
               </td>
-              <td style="padding: 0.75rem 1rem; font-family: monospace; font-size: 0.76rem; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary);">
                 <%= JSON.stringify(log.details) %>
               </td>
             </tr>
@@ -137,10 +147,14 @@
 
     <!-- Cursor-based Pagination -->
     <% if (nextCursor) { %>
-      <div style="display: flex; justify-content: center; padding: 1.5rem; border-top: 1px solid var(--card-border);">
+      <div style="display: flex; justify-content: center; padding: 1.25rem; border-top: 1px solid var(--border-default); background: var(--bg-subtle);">
         <a href="/admin/audit-logs?<%= selectedEventId ? 'eventId=' + selectedEventId + '&' : '' %><%= dateFrom ? 'dateFrom=' + dateFrom + '&' : '' %><%= dateTo ? 'dateTo=' + dateTo + '&' : '' %>cursor=<%= encodeURIComponent(nextCursor) %>"
-           class="btn btn-secondary">
-          Next 50 Records (Cursor Pagination) &rarr;
+           class="btn btn-secondary" style="font-weight: 600;">
+          <span>Load Next 50 Records (Cursor Pagination)</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
         </a>
       </div>
     <% } %>

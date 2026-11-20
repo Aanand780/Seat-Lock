@@ -19,6 +19,12 @@ function csrfProtection(req, res, next) {
   // Make token available to all templates
   res.locals.csrfToken = req.session.csrfToken;
 
+  // Multipart routes parse the hidden token after the upload parser runs.
+  // Those routes must apply this middleware again immediately after parsing.
+  if (req.is('multipart/form-data')) {
+    return next();
+  }
+
   // Safe HTTP methods do not require CSRF validation
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
   if (safeMethods.includes(req.method)) {

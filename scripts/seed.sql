@@ -3,11 +3,11 @@
 -- Bcrypt hash generated with 10 salt rounds:
 INSERT INTO users (name, email, password_hash, role)
 VALUES 
-  ('Admin User', 'admin@collegefest.edu', '$2a$10$tZzC8n/oG6kP2aE7wGz89uL8c6e2hV3e2v.0R4c8H.W1e4c7v.1m.', 'ADMIN'),
-  ('Cultural Organizer', 'organizer@collegefest.edu', '$2a$10$tZzC8n/oG6kP2aE7wGz89uL8c6e2hV3e2v.0R4c8H.W1e4c7v.1m.', 'ORGANIZER'),
-  ('Sports Organizer', 'sports@collegefest.edu', '$2a$10$tZzC8n/oG6kP2aE7wGz89uL8c6e2hV3e2v.0R4c8H.W1e4c7v.1m.', 'ORGANIZER'),
-  ('Aanand Student', 'student@collegefest.edu', '$2a$10$tZzC8n/oG6kP2aE7wGz89uL8c6e2hV3e2v.0R4c8H.W1e4c7v.1m.', 'STUDENT'),
-  ('Priya Student', 'priya@collegefest.edu', '$2a$10$tZzC8n/oG6kP2aE7wGz89uL8c6e2hV3e2v.0R4c8H.W1e4c7v.1m.', 'STUDENT')
+  ('Admin User', 'admin@collegefest.edu', '$2a$10$5wt6SYsymaKVEibyMuhKmeq8rA9eOvpp8d2Lf/CEAl0HzMAW2FbOK', 'ADMIN'),
+  ('Cultural Organizer', 'organizer@collegefest.edu', '$2a$10$5wt6SYsymaKVEibyMuhKmeq8rA9eOvpp8d2Lf/CEAl0HzMAW2FbOK', 'ORGANIZER'),
+  ('Sports Organizer', 'sports@collegefest.edu', '$2a$10$5wt6SYsymaKVEibyMuhKmeq8rA9eOvpp8d2Lf/CEAl0HzMAW2FbOK', 'ORGANIZER'),
+  ('Aanand Student', 'student@collegefest.edu', '$2a$10$5wt6SYsymaKVEibyMuhKmeq8rA9eOvpp8d2Lf/CEAl0HzMAW2FbOK', 'STUDENT'),
+  ('Priya Student', 'priya@collegefest.edu', '$2a$10$5wt6SYsymaKVEibyMuhKmeq8rA9eOvpp8d2Lf/CEAl0HzMAW2FbOK', 'STUDENT')
 ON CONFLICT (email) DO NOTHING;
 
 -- Seed Events
@@ -30,6 +30,21 @@ BEGIN
         FOR n IN 1..10 LOOP
             INSERT INTO seats (event_id, row_label, seat_number, status)
             VALUES (1, r, n, 'AVAILABLE')
+            ON CONFLICT (event_id, row_label, seat_number) DO NOTHING;
+        END LOOP;
+    END LOOP;
+END $$;
+
+-- Seed Seats for Event 3 (Rows A, B, C; 10 seats each = 30 seats)
+DO $$
+DECLARE
+    r TEXT;
+    n INT;
+BEGIN
+    FOR r IN SELECT unnest(ARRAY['A', 'B', 'C']) LOOP
+        FOR n IN 1..10 LOOP
+            INSERT INTO seats (event_id, row_label, seat_number, status)
+            VALUES (3, r, n, 'AVAILABLE')
             ON CONFLICT (event_id, row_label, seat_number) DO NOTHING;
         END LOOP;
     END LOOP;

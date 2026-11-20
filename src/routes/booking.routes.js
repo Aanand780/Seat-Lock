@@ -6,6 +6,7 @@ const {
   cancelBooking,
   toggleSeatBlock,
   listMyBookings,
+  getBookingTickets,
 } = require('../services/booking.service');
 const { requireLogin, requireRole } = require('../middleware/rbac.middleware');
 
@@ -19,6 +20,16 @@ router.get('/my-bookings', requireRole('STUDENT', 'ADMIN'), async (req, res, nex
       activeHolds,
       bookings,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /bookings/:id/tickets - ticket page for the booking owner or admin
+router.get('/bookings/:id/tickets', requireRole('STUDENT', 'ADMIN'), async (req, res, next) => {
+  try {
+    const booking = await getBookingTickets(req.user, parseInt(req.params.id, 10));
+    res.render('bookings/tickets', { title: `Tickets - ${booking.event_title}`, booking });
   } catch (err) {
     next(err);
   }
@@ -63,7 +74,9 @@ router.post('/events/:id/hold', requireRole('STUDENT', 'ADMIN'), async (req, res
 router.post('/holds/:id/confirm', requireRole('STUDENT', 'ADMIN'), async (req, res, next) => {
   try {
     const holdId = parseInt(req.params.id, 10);
-    const result = await confirmHold(req.user, holdId);
+    let attendeeNames = req.body.attendeeNames || [];
+    if (!Array.isArray(attendeeNames)) attendeeNames = [attendeeNames];
+    const result = await confirmHold(req.user, holdId, { attendeeNames });
 
     if (req.xhr || (req.headers.accept && req.headers.accept.includes('application/json'))) {
       return res.status(200).json(result);

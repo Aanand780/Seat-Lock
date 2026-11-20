@@ -3,6 +3,7 @@
  * Renders user-friendly SSR error pages and maps database conflict/timeout codes.
  */
 function errorHandler(err, req, res, next) {
+  console.error('[Error Handler]', err);
   let statusCode = err.statusCode || err.status || 500;
   let message = err.message || 'An unexpected internal server error occurred.';
 

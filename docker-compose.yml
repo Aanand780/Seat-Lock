@@ -28,6 +28,7 @@ services:
     environment:
       PORT: 3000
       NODE_ENV: production
+      COOKIE_SECURE: "false"
       PGHOST: db
       PGPORT: 5432
       PGDATABASE: seatlock
@@ -36,6 +37,8 @@ services:
       SESSION_SECRET: seatlock-super-secure-production-secret-key-32chars
     ports:
       - "3000:3000"
+    volumes:
+      - ./src/public/uploads:/usr/src/app/src/public/uploads
     depends_on:
       db:
         condition: service_healthy

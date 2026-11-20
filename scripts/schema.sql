@@ -22,12 +22,28 @@ CREATE TABLE IF NOT EXISTS events (
     description TEXT,
     venue VARCHAR(200) NOT NULL,
     start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ,
     is_published BOOLEAN DEFAULT FALSE,
     organizer_id INT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    theme_photo TEXT,
     version INT DEFAULT 1 NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIMESTAMPTZ;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS theme_photo TEXT;
+UPDATE events SET end_time = start_time + INTERVAL '3 hours' WHERE end_time IS NULL;
+CREATE OR REPLACE FUNCTION set_event_end_time_default() RETURNS trigger AS $$
+BEGIN
+  IF NEW.end_time IS NULL THEN
+    NEW.end_time := NEW.start_time + INTERVAL '3 hours';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS events_set_end_time ON events;
+CREATE TRIGGER events_set_end_time BEFORE INSERT OR UPDATE OF start_time ON events
+FOR EACH ROW EXECUTE FUNCTION set_event_end_time_default();
 
 -- 3. Seats Table
 CREATE TABLE IF NOT EXISTS seats (
@@ -40,7 +56,7 @@ CREATE TABLE IF NOT EXISTS seats (
     CONSTRAINT uq_event_seat UNIQUE (event_id, row_label, seat_number)
 );
 
--- 4. Holds Table (2-step booking flow, 5 min expiry)
+-- 4. Holds Table (2-step booking flow, 3 min expiry)
 CREATE TABLE IF NOT EXISTS holds (
     id SERIAL PRIMARY KEY,
     event_id INT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -79,6 +95,7 @@ CREATE TABLE IF NOT EXISTS booking_seats (
     status VARCHAR(20) DEFAULT 'CONFIRMED' CHECK (status IN ('CONFIRMED', 'CANCELLED')),
     CONSTRAINT uq_booking_seat_rel UNIQUE (booking_id, seat_id)
 );
+ALTER TABLE booking_seats ADD COLUMN IF NOT EXISTS attendee_name VARCHAR(100);
 
 -- Partial Unique Index safety net: prevents any seat from having multiple active confirmed bookings
 CREATE UNIQUE INDEX IF NOT EXISTS uq_active_booking_seat ON booking_seats (seat_id) WHERE status = 'CONFIRMED';

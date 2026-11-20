@@ -1,0 +1,382 @@
+<%- include('../layouts/header') %>
+
+<div class="page-header" style="margin-bottom: 1.75rem;">
+  <div>
+    <div class="page-kicker">Executive Telemetry</div>
+    <h1 style="font-size: 1.875rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">
+      Ticket Sales & Capacity Dashboard
+    </h1>
+    <p style="color: var(--text-muted); font-size: 0.9375rem; margin-top: 0.25rem;">
+      Real-time ticket bookings, seat availability, gate admissions, and inventory status across all festival events
+    </p>
+  </div>
+  
+  <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+    <button onclick="window.location.reload()" class="btn btn-secondary btn-sm" title="Refresh Live Data" style="display: inline-flex; align-items: center; gap: 0.4rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+      </svg>
+      <span>Live Refresh</span>
+    </button>
+    <a href="/admin/audit-logs" class="btn btn-secondary btn-sm" title="View Sharded Audit Trail">
+      Audit Trail &rarr;
+    </a>
+  </div>
+</div>
+
+<!-- Primary Metric Stat Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+  
+  <!-- Stat 1: Total Booked Tickets -->
+  <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+          Tickets Booked
+        </span>
+        <span class="badge badge-info" style="font-size: 0.72rem;">
+          <%= summary.overallOccupancyRate %>% Sold
+        </span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.65rem;">
+        <span style="font-size: 2.25rem; font-weight: 800; color: var(--text-primary); line-height: 1;">
+          <%= summary.totalTicketsBooked %>
+        </span>
+        <span style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
+          / <%= summary.totalCapacity %> capacity
+        </span>
+      </div>
+    </div>
+    
+    <div>
+      <!-- Progress Bar -->
+      <div style="height: 6px; width: 100%; background: var(--bg-subtle); border-radius: 9999px; overflow: hidden; margin-bottom: 0.65rem; border: 1px solid var(--border-default);">
+        <div style="width: <%= summary.overallOccupancyRate %>%; background: #0f172a; height: 100%; border-radius: 9999px; transition: width 0.3s ease;"></div>
+      </div>
+      <div style="font-size: 0.78rem; color: var(--text-secondary); display: flex; justify-content: space-between;">
+        <span><%= summary.totalConfirmedBookings %> Confirmed Orders</span>
+        <span><%= summary.overallOccupancyRate %>% Occupied</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat 2: Remaining Tickets Available -->
+  <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid #059669;">
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+          Tickets Remaining
+        </span>
+        <span class="badge badge-success" style="font-size: 0.72rem;">
+          Available Now
+        </span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.65rem;">
+        <span style="font-size: 2.25rem; font-weight: 800; color: #059669; line-height: 1;">
+          <%= summary.totalTicketsRemaining %>
+        </span>
+        <span style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
+          seats ready
+        </span>
+      </div>
+    </div>
+    <div style="font-size: 0.78rem; color: var(--text-secondary); border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
+      <span>Unreserved numbered seats open for immediate student hold</span>
+    </div>
+  </div>
+
+  <!-- Stat 3: Active Temporary Holds -->
+  <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid #d97706;">
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+          Active Holds (5-Min)
+        </span>
+        <span class="badge badge-warning" style="font-size: 0.72rem;">
+          In Checkout
+        </span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.65rem;">
+        <span style="font-size: 2.25rem; font-weight: 800; color: #d97706; line-height: 1;">
+          <%= summary.totalHeldTickets %>
+        </span>
+        <span style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
+          locked seats
+        </span>
+      </div>
+    </div>
+    <div style="font-size: 0.78rem; color: var(--text-secondary); border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
+      <span>Seat holds expire or confirm within 3 mins</span>
+    </div>
+  </div>
+
+  <!-- Stat 4: Gate Check-In & Admissions -->
+  <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid #2563eb;">
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+          Admissions Checked In
+        </span>
+        <span class="badge badge-info" style="font-size: 0.72rem;">
+          <%= summary.overallCheckInRate %>% Gate Turnout
+        </span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.65rem;">
+        <span style="font-size: 2.25rem; font-weight: 800; color: #2563eb; line-height: 1;">
+          <%= summary.totalCheckedIn %>
+        </span>
+        <span style="font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">
+          / <%= summary.totalTicketsBooked %> arrivals
+        </span>
+      </div>
+    </div>
+    <div style="font-size: 0.78rem; color: var(--text-secondary); border-top: 1px solid var(--border-subtle); padding-top: 0.65rem;">
+      <span>Verified attendees admitted across all festival venues</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Secondary Metrics Bar -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+  <div style="background: #ffffff; border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Blocked / Reserved</div>
+      <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);"><%= summary.totalBlockedTickets %> Seats</div>
+    </div>
+    <span class="badge badge-neutral">VIP / Production</span>
+  </div>
+
+  <div style="background: #ffffff; border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Waitlist Demand</div>
+      <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);"><%= summary.totalWaitlist %> Students</div>
+    </div>
+    <span class="badge badge-warning">FIFO Queue</span>
+  </div>
+
+  <div style="background: #ffffff; border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 0.85rem 1.15rem; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+      <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Active Festivals</div>
+      <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);"><%= summary.totalEvents %> Events</div>
+    </div>
+    <span class="badge badge-info">Auditoriums</span>
+  </div>
+</div>
+
+<!-- Main Event-by-Event Inventory Breakdown Table -->
+<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 2.5rem;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-default); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Event Sales & Seat Inventory Breakdown</h2>
+      <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.15rem;">Detailed seat booking progress, available inventory, holds, and gate admissions per event</p>
+    </div>
+    <span class="badge badge-neutral"><%= eventSales.length %> Events Monitored</span>
+  </div>
+
+  <% if (eventSales.length === 0) { %>
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+      <p style="font-size: 0.95rem; font-weight: 500;">No events registered in database</p>
+    </div>
+  <% } else { %>
+    <div class="table-container" style="border: none; border-radius: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th>Event Details</th>
+            <th>Organizer</th>
+            <th style="text-align: center;">Total Capacity</th>
+            <th style="min-width: 170px;">Tickets Booked</th>
+            <th style="text-align: center;">Remaining</th>
+            <th style="text-align: center;">Active Holds</th>
+            <th style="text-align: center;">Blocked</th>
+            <th style="text-align: center;">Admissions</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% eventSales.forEach(e => { %>
+            <tr>
+              <!-- Event & Venue -->
+              <td style="max-width: 260px;">
+                <% if (e.theme_photo) { %>
+                  <img src="<%= e.theme_photo %>" alt="Theme photo for <%= e.title %>" loading="lazy" style="width: 100%; height: 100px; object-fit: cover; border-radius: var(--radius-md); margin-bottom: 0.5rem;">
+                <% } %>
+                <div style="display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem;">
+                  <strong style="color: var(--text-primary); font-size: 0.9375rem;"><%= e.title %></strong>
+                  <% if (e.is_published) { %>
+                    <span class="badge badge-success" style="font-size: 0.65rem; padding: 0.1rem 0.4rem;">Live</span>
+                  <% } else { %>
+                    <span class="badge badge-warning" style="font-size: 0.65rem; padding: 0.1rem 0.4rem;">Draft</span>
+                  <% } %>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted);">
+                  📍 <%= e.venue %> &bull; <%= new Date(e.start_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+                </div>
+              </td>
+
+              <!-- Organizer -->
+              <td style="font-size: 0.8125rem;">
+                <div style="font-weight: 600; color: var(--text-primary);"><%= e.organizer_name %></div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;"><%= e.organizer_email %></div>
+              </td>
+
+              <!-- Capacity -->
+              <td style="text-align: center; font-weight: 700; font-family: 'JetBrains Mono', monospace;">
+                <%= e.total_seats %>
+              </td>
+
+              <!-- Booked with Progress Bar -->
+              <td>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; font-size: 0.8125rem;">
+                  <span style="font-weight: 700; color: var(--text-primary);">
+                    <%= e.booked_seats %> / <%= e.total_seats %>
+                  </span>
+                  <span style="color: var(--text-muted); font-size: 0.75rem; font-weight: 600;">
+                    <%= e.occupancy_rate %>%
+                  </span>
+                </div>
+                <div style="height: 5px; width: 100%; background: var(--bg-subtle); border-radius: 9999px; overflow: hidden; border: 1px solid var(--border-default);">
+                  <div style="width: <%= e.occupancy_rate %>%; background: <%= e.occupancy_rate >= 90 ? '#dc2626' : (e.occupancy_rate >= 50 ? '#2563eb' : '#059669') %>; height: 100%;"></div>
+                </div>
+              </td>
+
+              <!-- Remaining Tickets -->
+              <td style="text-align: center;">
+                <% if (e.remaining_seats === 0) { %>
+                  <span class="badge badge-danger" style="font-size: 0.75rem; font-weight: 700;">SOLD OUT</span>
+                <% } else { %>
+                  <span class="badge badge-success" style="font-size: 0.78rem; font-weight: 700; font-family: 'JetBrains Mono', monospace;">
+                    <%= e.remaining_seats %> Left
+                  </span>
+                <% } %>
+              </td>
+
+              <!-- Active Holds -->
+              <td style="text-align: center;">
+                <% if (e.held_seats > 0) { %>
+                  <span class="badge badge-warning" style="font-weight: 700; font-family: 'JetBrains Mono', monospace;">
+                    <%= e.held_seats %>
+                  </span>
+                <% } else { %>
+                  <span style="color: var(--text-tertiary);">&mdash;</span>
+                <% } %>
+              </td>
+
+              <!-- Blocked -->
+              <td style="text-align: center; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;">
+                <%= e.blocked_seats > 0 ? e.blocked_seats : '—' %>
+              </td>
+
+              <!-- Check-In -->
+              <td style="text-align: center; font-size: 0.8125rem;">
+                <span style="font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">
+                  <%= e.checked_in_count %>
+                </span>
+                <span style="color: var(--text-muted); font-size: 0.75rem;">
+                  / <%= e.booked_seats %>
+                </span>
+              </td>
+
+              <!-- Action Links -->
+              <td style="text-align: right; white-space: nowrap;">
+                <div style="display: inline-flex; gap: 0.35rem;">
+                  <a href="/admin/dashboard/events/<%= e.id %>" class="btn btn-primary btn-sm" title="View this event's ticket dashboard">
+                    Tickets
+                  </a>
+                  <a href="/events/<%= e.id %>/seats" class="btn btn-secondary btn-sm" title="View Seat Grid">
+                    Seat Map
+                  </a>
+                  <a href="/organizer/events/<%= e.id %>/attendees" class="btn btn-secondary btn-sm" title="Attendee Roster & Check-In">
+                    Roster
+                  </a>
+                  <a href="/events/<%= e.id %>/edit" class="btn btn-secondary btn-sm" title="Edit Event">
+                    Edit
+                  </a>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<!-- Recent Ticket Orders Feed -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-default); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">Recent Ticket Confirmations</h2>
+      <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.15rem;">Live feed of student ticket reservations across all auditoriums</p>
+    </div>
+    <span class="badge badge-info"><%= recentSales.length %> Latest Transactions</span>
+  </div>
+
+  <% if (recentSales.length === 0) { %>
+    <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+      <p style="font-size: 0.95rem; font-weight: 500;">No ticket orders placed yet</p>
+    </div>
+  <% } else { %>
+    <div class="table-container" style="border: none; border-radius: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th>Booking Ref</th>
+            <th>Purchaser / Student</th>
+            <th>Festival Event</th>
+            <th>Allocated Seats</th>
+            <th style="text-align: center;">Ticket Count</th>
+            <th>Admission Status</th>
+            <th style="text-align: right;">Booking Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% recentSales.forEach(sale => { %>
+            <tr>
+              <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-primary);">
+                #<%= sale.booking_id %>
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-primary);"><%= sale.student_name %></div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;"><%= sale.student_email %></div>
+              </td>
+              <td>
+                <div style="font-weight: 600; color: var(--text-primary);"><%= sale.event_title %></div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">📍 <%= sale.venue %></div>
+              </td>
+              <td>
+                <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                  <% (sale.seats_booked || []).forEach(seat => { %>
+                    <span class="badge badge-info" style="font-size: 0.72rem;">
+                      <%= seat %>
+                    </span>
+                  <% }) %>
+                </div>
+              </td>
+              <td style="text-align: center; font-weight: 700; font-family: 'JetBrains Mono', monospace;">
+                <%= sale.ticket_count %>
+              </td>
+              <td>
+                <% if (sale.checked_in) { %>
+                  <span class="badge badge-success" style="font-size: 0.72rem;">
+                    Checked In (<%= new Date(sale.checked_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) %>)
+                  </span>
+                <% } else { %>
+                  <span class="badge badge-neutral" style="font-size: 0.72rem;">
+                    Confirmed Pass
+                  </span>
+                <% } %>
+              </td>
+              <td style="text-align: right; color: var(--text-muted); font-size: 0.8125rem; font-family: 'JetBrains Mono', monospace; white-space: nowrap;">
+                <%= new Date(sale.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../layouts/footer') %>

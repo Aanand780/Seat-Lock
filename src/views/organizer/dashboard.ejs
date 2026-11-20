@@ -1,0 +1,74 @@
+<%- include('../layouts/header') %>
+
+<div class="page-header" style="margin-bottom: 1.5rem;">
+  <div>
+    <div class="page-kicker">Organizer Overview</div>
+    <h1 style="font-size: 1.875rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em;">My Event Sales Dashboard</h1>
+    <p style="color: var(--text-muted); margin-top: 0.25rem;">Ticket sales and admissions for events assigned to you</p>
+  </div>
+  <button onclick="window.location.reload()" class="btn btn-secondary btn-sm">Refresh</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="card"><div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Tickets Booked</div><div style="font-size: 2rem; font-weight: 800; margin-top: 0.4rem;"><%= summary.totalTicketsBooked %> <span style="font-size: 0.95rem; color: var(--text-muted);">/ <%= summary.totalCapacity %></span></div><div style="font-size: 0.82rem; color: var(--text-secondary);"><%= summary.overallOccupancyRate %>% of capacity</div></div>
+  <div class="card"><div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Tickets Remaining</div><div style="font-size: 2rem; font-weight: 800; color: #059669; margin-top: 0.4rem;"><%= summary.totalTicketsRemaining %></div><div style="font-size: 0.82rem; color: var(--text-secondary);">Available across your events</div></div>
+  <div class="card"><div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Active Holds</div><div style="font-size: 2rem; font-weight: 800; color: #d97706; margin-top: 0.4rem;"><%= summary.totalHeldTickets %></div><div style="font-size: 0.82rem; color: var(--text-secondary);">Seats in checkout</div></div>
+  <div class="card"><div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Admissions</div><div style="font-size: 2rem; font-weight: 800; color: #2563eb; margin-top: 0.4rem;"><%= summary.totalCheckedIn %> <span style="font-size: 0.95rem; color: var(--text-muted);">/ <%= summary.totalTicketsBooked %></span></div><div style="font-size: 0.82rem; color: var(--text-secondary);"><%= summary.overallCheckInRate %>% checked in</div></div>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.5rem;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-default);">
+    <h2 style="font-size: 1.15rem; font-weight: 700;">My Events</h2>
+    <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.15rem;">Sales and inventory are shown only for events assigned to your account</p>
+  </div>
+  <% if (eventSales.length === 0) { %>
+    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">No events are currently assigned to you.</div>
+  <% } else { %>
+    <div class="table-container" style="border: none; border-radius: 0;">
+      <table>
+        <thead><tr><th>Event</th><th>When / Where</th><th style="text-align: center;">Booked</th><th style="text-align: center;">Remaining</th><th style="text-align: center;">Holds</th><th style="text-align: center;">Check-ins</th><th style="text-align: right;">Actions</th></tr></thead>
+        <tbody>
+          <% eventSales.forEach(event => { %>
+            <tr>
+              <td><% if (event.theme_photo) { %><img src="<%= event.theme_photo %>" alt="Theme photo for <%= event.title %>" loading="lazy" style="width: 140px; height: 72px; object-fit: cover; border-radius: var(--radius-md); margin-bottom: 0.35rem;"><% } %><div style="font-weight: 700;"><%= event.title %></div><div style="margin-top: 0.25rem;"><% if (event.is_published) { %><span class="badge badge-success">Published</span><% } else { %><span class="badge badge-warning">Draft</span><% } %> <span class="badge badge-info"><%= event.occupancy_rate %>% sold</span></div></td>
+              <td><div><%= event.venue %></div><div style="font-size: 0.78rem; color: var(--text-muted);"><%= new Date(event.start_time).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) %></div></td>
+              <td style="text-align: center; font-weight: 700;"><%= event.booked_seats %> / <%= event.total_seats %></td>
+              <td style="text-align: center;"><span class="badge <%= event.remaining_seats ? 'badge-success' : 'badge-danger' %>"><%= event.remaining_seats %></span></td>
+              <td style="text-align: center;"><%= event.held_seats %></td>
+              <td style="text-align: center;"><%= event.checked_in_count %> / <%= event.booked_seats %></td>
+              <td style="text-align: right; white-space: nowrap;"><a class="btn btn-primary btn-sm" href="/organizer/dashboard/events/<%= event.id %>">Ticket Dashboard</a> <a class="btn btn-secondary btn-sm" href="/organizer/events/<%= event.id %>/attendees">Roster</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-default);"><h2 style="font-size: 1.15rem; font-weight: 700;">Recent Ticket Bookings</h2><p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.15rem;">Latest confirmed bookings across your events</p></div>
+  <% if (recentSales.length === 0) { %>
+    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">No ticket bookings yet.</div>
+  <% } else { %>
+    <div class="table-container" style="border: none; border-radius: 0;">
+      <table>
+        <thead><tr><th>Booking</th><th>Student</th><th>Event</th><th>Seats</th><th style="text-align: center;">Tickets</th><th>Admission</th><th style="text-align: right;">Booked</th></tr></thead>
+        <tbody>
+          <% recentSales.forEach(sale => { %>
+            <tr>
+              <td style="font-family: 'JetBrains Mono', monospace; font-weight: 700;">#<%= sale.booking_id %></td>
+              <td><div style="font-weight: 600;"><%= sale.student_name %></div><div style="font-size: 0.75rem; color: var(--text-muted);"><%= sale.student_email %></div></td>
+              <td><a href="/organizer/dashboard/events/<%= sale.event_id %>" style="font-weight: 600;"><%= sale.event_title %></a></td>
+              <td><%= sale.seats_booked.join(', ') %></td>
+              <td style="text-align: center; font-weight: 700;"><%= sale.ticket_count %></td>
+              <td><% if (sale.checked_in) { %><span class="badge badge-success">Checked in</span><% } else { %><span class="badge badge-neutral">Confirmed</span><% } %></td>
+              <td style="text-align: right; white-space: nowrap;"><%= new Date(sale.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../layouts/footer') %>

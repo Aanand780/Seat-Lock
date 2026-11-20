@@ -1,0 +1,1 @@
+ALTER TABLE booking_seats ADD COLUMN IF NOT EXISTS attendee_name VARCHAR(100);
