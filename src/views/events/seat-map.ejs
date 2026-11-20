@@ -6,15 +6,24 @@
   <p style="color: var(--text-muted); font-size: 0.95rem;">📍 <%= event.venue %> &bull; 🕒 <%= new Date(event.start_time).toLocaleString() %></p>
 </div>
 
+<% if (typeof error !== 'undefined' && error) { %>
+  <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+    <strong>Notice:</strong> <%= error %>
+  </div>
+<% } %>
+
 <div class="card" style="margin-bottom: 2rem;">
   <div class="card-header">
-    <h3 style="font-size: 1.15rem; font-weight: 700;">Stage / Auditorium Layout</h3>
-    <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.82rem;">
+    <h3 style="font-size: 1.15rem; font-weight: 700;">Auditorium Seating Grid</h3>
+    <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.82rem; flex-wrap: wrap;">
       <span style="display: flex; align-items: center; gap: 0.35rem;">
         <span style="width: 14px; height: 14px; background: #10b981; border-radius: 4px; display: inline-block;"></span> Available
       </span>
       <span style="display: flex; align-items: center; gap: 0.35rem;">
-        <span style="width: 14px; height: 14px; background: #f59e0b; border-radius: 4px; display: inline-block;"></span> Held (5m)
+        <span style="width: 14px; height: 14px; background: #3b82f6; border-radius: 4px; display: inline-block;"></span> Held by You
+      </span>
+      <span style="display: flex; align-items: center; gap: 0.35rem;">
+        <span style="width: 14px; height: 14px; background: #f59e0b; border-radius: 4px; display: inline-block;"></span> Held by Others
       </span>
       <span style="display: flex; align-items: center; gap: 0.35rem;">
         <span style="width: 14px; height: 14px; background: #ef4444; border-radius: 4px; display: inline-block;"></span> Booked
@@ -25,8 +34,8 @@
     </div>
   </div>
 
-  <div style="background: #0f172a; padding: 1rem; border-radius: 8px; text-align: center; margin-bottom: 2rem; border: 1px dashed var(--card-border); color: var(--text-muted); font-weight: 700; letter-spacing: 2px;">
-    STAGE FRONT
+  <div style="background: #0f172a; padding: 0.85rem; border-radius: 8px; text-align: center; margin-bottom: 2rem; border: 1px dashed var(--card-border); color: var(--text-muted); font-weight: 700; letter-spacing: 2px;">
+    &mdash; AUDITORIUM STAGE FRONT &mdash;
   </div>
 
   <form id="holdForm" action="/events/<%= event.id %>/hold" method="POST">
@@ -36,7 +45,7 @@
       <% Object.keys(seatsByRow).sort().forEach(row => { %>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
           <div style="width: 28px; font-weight: 700; color: var(--text-muted); text-align: center;"><%= row %></div>
-          <div style="display: flex; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <% seatsByRow[row].forEach(seat => { %>
               <%
                 let bg = '#10b981'; // available
@@ -60,7 +69,8 @@
                 <input type="checkbox" name="seatIds" value="<%= seat.id %>" <%= disabled ? 'disabled' : '' %>
                        style="position: absolute; opacity: 0; pointer-events: none;">
                 <div class="seat-badge" id="seat-<%= seat.id %>"
-                     style="width: 36px; height: 36px; border-radius: 6px; background: <%= bg %>; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: white; user-select: none; transition: transform 0.1s, box-shadow 0.1s;">
+                     title="Seat <%= seat.row_label %><%= seat.seat_number %> (<%= seat.state %>)"
+                     style="width: 38px; height: 38px; border-radius: 6px; background: <%= bg %>; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: white; user-select: none; transition: transform 0.1s, box-shadow 0.1s;">
                   <%= seat.seat_number %>
                 </div>
               </label>
@@ -71,12 +81,12 @@
     </div>
 
     <% if (locals.isStudent || locals.isAdmin) { %>
-      <div style="margin-top: 2rem; border-top: 1px solid var(--card-border); padding-top: 1.5rem; text-align: center;">
+      <div style="margin-top: 2.5rem; border-top: 1px solid var(--card-border); padding-top: 1.5rem; text-align: center;">
         <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.75rem;">
-          Students can select 1 to 4 seats. Holds expire automatically after 5 minutes.
+          Students can select between 1 and 4 seats. Holds are valid for exactly 5 minutes.
         </p>
-        <button type="submit" class="btn btn-primary" id="holdBtn" disabled>
-          Hold Selected Seats (Phase 2)
+        <button type="submit" class="btn btn-primary" id="holdBtn" disabled style="padding: 0.75rem 2rem; font-size: 1rem;">
+          Select 1–4 Seats to Hold
         </button>
       </div>
     <% } else if (!locals.user) { %>
@@ -88,6 +98,36 @@
   </form>
 </div>
 
+<!-- Organizer Seat Blocking Control Panel -->
+<% if (locals.isAdmin || (locals.isOrganizer && locals.user.id === event.organizer_id)) { %>
+  <div class="card" style="margin-top: 2rem; border-color: rgba(245, 158, 11, 0.4);">
+    <div class="card-header">
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: #fcd34d;">🛠️ Organizer Seat Management & Blocking</h3>
+      <span style="font-size: 0.8rem; color: var(--text-muted);">Organizers cannot block already booked seats</span>
+    </div>
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1.25rem;">
+      Toggle blocked status for VIP reserves or equipment placement:
+    </p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+      <% Object.keys(seatsByRow).sort().forEach(row => { %>
+        <% seatsByRow[row].forEach(seat => { %>
+          <% if (seat.state !== 'BOOKED') { %>
+            <form action="/events/<%= event.id %>/seats/<%= seat.id %>/block" method="POST" style="margin: 0; display: inline;">
+              <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
+              <button type="submit" class="btn btn-sm <%= seat.state === 'BLOCKED' ? 'btn-secondary' : 'btn-primary' %>"
+                      style="font-size: 0.75rem; padding: 0.25rem 0.5rem;"
+                      title="Toggle Block for <%= seat.row_label %><%= seat.seat_number %>">
+                <%= seat.row_label %><%= seat.seat_number %>: <%= seat.state === 'BLOCKED' ? 'Unblock' : 'Block' %>
+              </button>
+            </form>
+          <% } %>
+        <% }) %>
+      <% }) %>
+    </div>
+  </div>
+<% } %>
+
 <script>
   const checkboxes = document.querySelectorAll('input[name="seatIds"]');
   const holdBtn = document.getElementById('holdBtn');
@@ -96,17 +136,27 @@
     cb.addEventListener('change', () => {
       const seatBadge = document.getElementById('seat-' + cb.value);
       if (cb.checked) {
-        seatBadge.style.boxShadow = '0 0 0 3px white, 0 0 10px rgba(59, 130, 246, 0.8)';
-        seatBadge.style.transform = 'scale(1.1)';
+        seatBadge.style.boxShadow = '0 0 0 3px white, 0 0 12px rgba(59, 130, 246, 0.9)';
+        seatBadge.style.transform = 'scale(1.12)';
       } else {
         seatBadge.style.boxShadow = 'none';
         seatBadge.style.transform = 'scale(1)';
       }
 
-      const checkedCount = document.querySelectorAll('input[name="seatIds"]:checked').length;
+      const checkedBoxes = document.querySelectorAll('input[name="seatIds"]:checked');
+      const count = checkedBoxes.length;
+
       if (holdBtn) {
-        holdBtn.disabled = checkedCount === 0 || checkedCount > 4;
-        holdBtn.textContent = checkedCount > 4 ? 'Maximum 4 seats allowed' : `Hold ${checkedCount} Seat(s) (5 min)`;
+        if (count === 0) {
+          holdBtn.disabled = true;
+          holdBtn.textContent = 'Select 1–4 Seats to Hold';
+        } else if (count > 4) {
+          holdBtn.disabled = true;
+          holdBtn.textContent = 'Limit Exceeded: Maximum 4 Seats';
+        } else {
+          holdBtn.disabled = false;
+          holdBtn.textContent = `Hold ${count} Seat${count > 1 ? 's' : ''} for 5 Minutes`;
+        }
       }
     });
   });
