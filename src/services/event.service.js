@@ -80,6 +80,13 @@ async function getEventById(currentUser, eventId) {
   if (!event.is_published) {
     const isOwner = currentUser && (currentUser.role === 'ADMIN' || (currentUser.role === 'ORGANIZER' && currentUser.id === event.organizer_id));
     if (!isOwner) {
+      if (currentUser) {
+        await writeAudit(currentUser, {
+          action: 'ACCESS_DENIED',
+          eventId: event.id,
+          details: { reason: 'Unauthorized access to unpublished event' },
+        });
+      }
       const error = new Error('Access denied: You do not have permission to view this unpublished event');
       error.statusCode = 403;
       throw error;
@@ -109,6 +116,11 @@ async function updateEvent(currentUser, eventId, {
 
   // Permission check: only admin or event organizer can update
   if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.id !== event.organizer_id)) {
+    await writeAudit(currentUser, {
+      action: 'ACCESS_DENIED',
+      eventId: event.id,
+      details: { reason: 'Unauthorized event edit attempt' },
+    });
     const error = new Error('Access denied: You cannot edit an event you do not own');
     error.statusCode = 403;
     throw error;
@@ -164,7 +176,14 @@ async function updateEvent(currentUser, eventId, {
 }
 
 /**
- * Check-in attendee for an event (Service re-checks ownership)
+ * Check-in attendee for an event (Service re-checks ownership and writes CHECKIN / ACCESS_DENIED)
+ *
+ * - Organizers may only check in attendees for their OWN events.
+ * - Admins may check in attendees for any event.
+ * - Students are denied (403 + ACCESS_DENIED).
+ *
+ * @param {object} currentUser
+ * @param {number} bookingId
  */
 async function checkIn(currentUser, bookingId) {
   const result = await db.query(
@@ -182,8 +201,26 @@ async function checkIn(currentUser, bookingId) {
     throw error;
   }
 
-  // Permission check inside service
-  if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.id !== booking.organizer_id)) {
+  // Permission check: Admin or Organizer owning this event
+  const isAuthorized = currentUser && (
+    currentUser.role === 'ADMIN' ||
+    (currentUser.role === 'ORGANIZER' && currentUser.id === booking.organizer_id)
+  );
+
+  if (!isAuthorized) {
+    await writeAudit(currentUser, {
+      actorId: currentUser ? currentUser.id : null,
+      actorRole: currentUser ? currentUser.role : 'ANONYMOUS',
+      action: 'ACCESS_DENIED',
+      eventId: booking.event_id,
+      details: {
+        reason: 'Ownership violation: Organizer attempted check-in for an event owned by another organizer',
+        bookingId,
+        bookingOrganizerId: booking.organizer_id,
+        currentUserId: currentUser ? currentUser.id : null,
+      },
+    });
+
     const error = new Error('Access denied: You can only check in attendees for your own events');
     error.statusCode = 403;
     throw error;
@@ -198,24 +235,61 @@ async function checkIn(currentUser, bookingId) {
     [bookingId]
   );
 
+  // Log CHECKIN action
   await writeAudit(currentUser, {
     actorId: currentUser.id,
     actorRole: currentUser.role,
     action: 'CHECKIN',
     eventId: booking.event_id,
-    details: { bookingId, studentId: booking.student_id },
+    details: {
+      bookingId,
+      studentId: booking.student_id,
+      checkedInAt: updated.rows[0].checked_in_at,
+    },
   });
 
   return { booking: updated.rows[0], alreadyCheckedIn: false };
 }
 
 /**
- * List bookings for an event (Service re-checks ownership)
+ * List bookings for an event (Service re-checks ownership and writes ACCESS_DENIED on violation)
+ *
+ * - Organizers may only access their OWN events.
+ * - Admins may access all events.
+ * - Students are denied (403 + ACCESS_DENIED).
+ *
+ * @param {object} currentUser
+ * @param {number} eventId
  */
 async function listEventBookings(currentUser, eventId) {
-  const event = await getEventById(currentUser, eventId);
+  // First retrieve event to inspect organizer_id
+  const eventRes = await db.query(`SELECT * FROM events WHERE id = $1`, [eventId]);
+  const event = eventRes.rows[0];
 
-  if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.id !== event.organizer_id)) {
+  if (!event) {
+    const error = new Error('Event not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const isAuthorized = currentUser && (
+    currentUser.role === 'ADMIN' ||
+    (currentUser.role === 'ORGANIZER' && currentUser.id === event.organizer_id)
+  );
+
+  if (!isAuthorized) {
+    await writeAudit(currentUser, {
+      actorId: currentUser ? currentUser.id : null,
+      actorRole: currentUser ? currentUser.role : 'ANONYMOUS',
+      action: 'ACCESS_DENIED',
+      eventId: event.id,
+      details: {
+        reason: 'Ownership violation: Organizer attempted to view attendee roster of another organizer\'s event',
+        eventOrganizerId: event.organizer_id,
+        currentUserId: currentUser ? currentUser.id : null,
+      },
+    });
+
     const error = new Error('Access denied: You can only view attendee lists for your own events');
     error.statusCode = 403;
     throw error;
@@ -228,7 +302,7 @@ async function listEventBookings(currentUser, eventId) {
      JOIN users u ON b.student_id = u.id
      LEFT JOIN booking_seats bs ON bs.booking_id = b.id
      LEFT JOIN seats s ON bs.seat_id = s.id
-     WHERE b.event_id = $1
+     WHERE b.event_id = $1 AND b.status = 'CONFIRMED'
      GROUP BY b.id, u.name, u.email
      ORDER BY b.created_at ASC`,
     [eventId]

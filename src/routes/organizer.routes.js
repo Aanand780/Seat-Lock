@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { listEventBookings, checkIn, getEventById } = require('../services/event.service');
 const { requireRole, requireEventOwner } = require('../middleware/rbac.middleware');
+const { deny } = require('../utils/deny');
 
 // GET /organizer/events/:id/attendees
 router.get('/organizer/events/:id/attendees', requireRole('ORGANIZER', 'ADMIN'), requireEventOwner, async (req, res, next) => {
@@ -16,6 +17,9 @@ router.get('/organizer/events/:id/attendees', requireRole('ORGANIZER', 'ADMIN'),
       bookings,
     });
   } catch (err) {
+    if (err.statusCode === 403) {
+      return deny(req, res, err.message, { eventId: req.params.id });
+    }
     next(err);
   }
 });
@@ -29,6 +33,9 @@ router.post('/organizer/bookings/:id/checkin', requireRole('ORGANIZER', 'ADMIN')
     const redirectUrl = req.body.redirectUrl || '/events';
     res.redirect(redirectUrl);
   } catch (err) {
+    if (err.statusCode === 403) {
+      return deny(req, res, err.message, { bookingId: req.params.id });
+    }
     next(err);
   }
 });

@@ -1,46 +1,76 @@
 <%- include('../layouts/header') %>
 
+<%
+  const totalCount = bookings.length;
+  const checkedInCount = bookings.filter(b => b.checked_in).length;
+  const pendingCount = totalCount - checkedInCount;
+%>
+
 <div style="margin-bottom: 1.5rem;">
   <a href="/events" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">&larr; Back to Events</a>
-  <h1 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.5rem;"><%= event.title %> &mdash; Attendee Roster</h1>
-  <p style="color: var(--text-muted); font-size: 0.9rem;">Organizers & Admins can verify check-ins at entry</p>
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 0.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h1 style="font-size: 1.85rem; font-weight: 800;"><%= event.title %> &mdash; Attendee Roster</h1>
+      <p style="color: var(--text-muted); font-size: 0.95rem;">📍 <%= event.venue %> &bull; 🕒 <%= new Date(event.start_time).toLocaleString() %></p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+      <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 0.4rem 0.85rem; text-align: center;">
+        <div style="font-size: 0.72rem; color: #6ee7b7; font-weight: 700; text-transform: uppercase;">Checked In</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #6ee7b7;"><%= checkedInCount %></div>
+      </div>
+      <div style="background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148, 163, 184, 0.4); border-radius: 8px; padding: 0.4rem 0.85rem; text-align: center;">
+        <div style="font-size: 0.72rem; color: #cbd5e1; font-weight: 700; text-transform: uppercase;">Pending</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #cbd5e1;"><%= pendingCount %></div>
+      </div>
+      <div style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 8px; padding: 0.4rem 0.85rem; text-align: center;">
+        <div style="font-size: 0.72rem; color: #93c5fd; font-weight: 700; text-transform: uppercase;">Total</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #93c5fd;"><%= totalCount %></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card">
   <% if (bookings.length === 0) { %>
-    <p style="text-align: center; color: var(--text-muted); padding: 2rem;">No confirmed attendees yet for this event.</p>
+    <p style="text-align: center; color: var(--text-muted); padding: 3rem;">No confirmed attendees yet for this event.</p>
   <% } else { %>
     <div style="overflow-x: auto;">
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
         <thead>
-          <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.78rem; text-transform: uppercase;">
-            <th style="padding: 0.75rem 1rem;">Booking ID</th>
-            <th style="padding: 0.75rem 1rem;">Student</th>
+          <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); font-size: 0.76rem; text-transform: uppercase;">
+            <th style="padding: 0.75rem 1rem;">Booking Ref</th>
+            <th style="padding: 0.75rem 1rem;">Student Details</th>
             <th style="padding: 0.75rem 1rem;">Assigned Seats</th>
-            <th style="padding: 0.75rem 1rem;">Status</th>
+            <th style="padding: 0.75rem 1rem;">Check-In Status</th>
             <th style="padding: 0.75rem 1rem; text-align: right;">Action</th>
           </tr>
         </thead>
         <tbody>
           <% bookings.forEach(b => { %>
             <tr style="border-bottom: 1px solid rgba(51, 65, 85, 0.5);">
-              <td style="padding: 0.85rem 1rem; font-family: monospace;">#<%= b.id %></td>
+              <td style="padding: 0.85rem 1rem; font-family: monospace; font-weight: 700;">
+                #<%= b.id %>
+              </td>
               <td style="padding: 0.85rem 1rem;">
                 <div style="font-weight: 600;"><%= b.student_name %></div>
                 <div style="color: var(--text-muted); font-size: 0.8rem;"><%= b.student_email %></div>
               </td>
               <td style="padding: 0.85rem 1rem;">
                 <% (b.seats || []).forEach(s => { %>
-                  <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 0.15rem 0.45rem; border-radius: 4px; font-weight: 700; font-size: 0.78rem; margin-right: 0.25rem;">
+                  <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.8rem; margin-right: 0.3rem;">
                     <%= s.row %><%= s.seat %>
                   </span>
                 <% }) %>
               </td>
               <td style="padding: 0.85rem 1rem;">
                 <% if (b.checked_in) { %>
-                  <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">CHECKED IN</span>
+                  <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">
+                    ✓ CHECKED IN
+                  </span>
                 <% } else { %>
-                  <span style="background: rgba(148, 163, 184, 0.2); color: #cbd5e1; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">NOT CHECKED IN</span>
+                  <span style="background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.4); padding: 0.2rem 0.55rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700;">
+                    NOT CHECKED IN
+                  </span>
                 <% } %>
               </td>
               <td style="padding: 0.85rem 1rem; text-align: right;">
@@ -48,10 +78,14 @@
                   <form action="/organizer/bookings/<%= b.id %>/checkin" method="POST" style="margin: 0; display: inline;">
                     <input type="hidden" name="_csrf" value="<%= locals.csrfToken %>">
                     <input type="hidden" name="redirectUrl" value="/organizer/events/<%= event.id %>/attendees">
-                    <button type="submit" class="btn btn-primary btn-sm">Check In</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                      Check In
+                    </button>
                   </form>
                 <% } else { %>
-                  <span style="color: var(--text-muted); font-size: 0.8rem;">Checked in at <%= new Date(b.checked_in_at).toLocaleTimeString() %></span>
+                  <span style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">
+                    <%= new Date(b.checked_in_at).toLocaleTimeString() %>
+                  </span>
                 <% } %>
               </td>
             </tr>
